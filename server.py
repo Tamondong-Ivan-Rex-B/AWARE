@@ -60,6 +60,39 @@ def get_analytics():
     
     return jsonify(result)
 
+@app.route('/api/get_dashboard_data', methods=['GET'])
+def get_dashboard_data():
+    db = get_db_connection()
+    cursor = db.cursor(dictionary=True)
+    
+    # 1. Fetch all raw evaluations for the list
+    cursor.execute("""
+        SELECT Course_Code, Topics, Pacing_Score, Comprehension_Score, 
+               Workload_Score, Study_Hours, Comments 
+        FROM Evaluation 
+        ORDER BY Evaluation_ID DESC
+    """)
+    evaluations = cursor.fetchall()
+    
+    # 2. Calculate the averages for the top KPI boxes
+    cursor.execute("""
+        SELECT 
+            AVG(Pacing_Score) as avg_pacing,
+            AVG(Comprehension_Score) as avg_comp,
+            AVG(Workload_Score) as avg_workload
+        FROM Evaluation
+    """)
+    averages = cursor.fetchone()
+    
+    cursor.close()
+    db.close()
+    
+    # Send both the raw list and the averages back to PyQt6
+    return jsonify({
+        "evaluations": evaluations,
+        "averages": averages
+    })
+
 # Start the server
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

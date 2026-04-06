@@ -235,16 +235,17 @@
         <div class="card login-container">
             <h3 style="margin-bottom: 16px;">Sign In</h3>
             
-            <div class="form-group">
-                <label>Email</label>
-                <input type="email" class="form-control" id="emailInput" placeholder="your.email@tip.edu.ph">
-            </div>
-            <div class="form-group">
-                <label>Password</label>
-                <input type="password" class="form-control" id="passwordInput" placeholder="Enter your password">
-            </div>
-            
-            <button class="btn-primary" onclick="handleLogin()">Sign In</button>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" class="form-control" id="studentEmail" placeholder="2024001@tip.edu.ph">
+                </div>
+                
+                <div class="form-group" style="margin-bottom: 24px;">
+                    <label>Password</label>
+                    <input type="password" class="form-control" id="studentPassword" placeholder="Enter your password">
+                </div>
+                
+                <button class="btn-primary" style="width: 100%; padding: 12px;" onclick="handleLogin()">Sign In</button>
 
             <div class="demo-box">
                 <strong>Demo Credentials:</strong><br>
@@ -288,15 +289,33 @@
                 
                 <div class="form-group">
                     <label>Select Course *</label>
-                    <select class="form-control" id="courseSelect">
-                        <option value="CPE111">CPE111 - Internet of Things</option>
-                        <option value="MATH201">MATH201 - Linear Programming</option>
+                    <select class="form-control" id="courseSelect" onchange="loadTopics()">
+                        <option value="">Loading courses...</option>
                     </select>
                 </div>
 
                 <div class="form-group" style="margin-bottom: 32px;">
                     <label>Topics Covered This Week *</label>
-                    <input type="text" class="form-control" id="topicsInput" placeholder="e.g., Microcontrollers, Logic Gates">
+                    <select class="form-control" id="topicsSelect">
+                        <option value="">Select a course first...</option>
+                    </select>
+                </div>
+
+                <div class="rating-container">
+                    <div class="rating-header">
+                        <h4>Explanation Clarity</h4>
+                        <p>How clear was the professor's explanation this week?</p>
+                    </div>
+                    <div class="rating-group" id="clarityGroup">
+                        <button class="rating-btn" onclick="setRating('clarity', 1)">1</button>
+                        <button class="rating-btn" onclick="setRating('clarity', 2)">2</button>
+                        <button class="rating-btn active" onclick="setRating('clarity', 3)">3</button>
+                        <button class="rating-btn" onclick="setRating('clarity', 4)">4</button>
+                        <button class="rating-btn" onclick="setRating('clarity', 5)">5</button>
+                    </div>
+                    <div class="rating-labels">
+                        <span>Confusing</span><span>Very Clear</span>
+                    </div>
                 </div>
 
                 <div class="rating-container">
@@ -321,32 +340,32 @@
                         <h4>Understanding Level</h4>
                         <p>How well did you understand this week's topics?</p>
                     </div>
-                    <div class="rating-group" id="compGroup">
-                        <button class="rating-btn" onclick="setRating('comp', 1)">1</button>
-                        <button class="rating-btn" onclick="setRating('comp', 2)">2</button>
-                        <button class="rating-btn active" onclick="setRating('comp', 3)">3</button>
-                        <button class="rating-btn" onclick="setRating('comp', 4)">4</button>
-                        <button class="rating-btn" onclick="setRating('comp', 5)">5</button>
+                    <div class="rating-group" id="comprehensionGroup">
+                        <button class="rating-btn" onclick="setRating('comprehension', 1)">1</button>
+                        <button class="rating-btn" onclick="setRating('comprehension', 2)">2</button>
+                        <button class="rating-btn active" onclick="setRating('comprehension', 3)">3</button>
+                        <button class="rating-btn" onclick="setRating('comprehension', 4)">4</button>
+                        <button class="rating-btn" onclick="setRating('comprehension', 5)">5</button>
                     </div>
                     <div class="rating-labels">
-                        <span>Confused</span><span>Completely Clear</span>
+                        <span>Lost</span><span>Completely Clear</span>
                     </div>
                 </div>
 
                 <div class="rating-container">
                     <div class="rating-header">
-                        <h4>Workload Balance</h4>
-                        <p>How was this week's workload?</p>
+                        <h4>Session Engagement</h4>
+                        <p>How engaging or interactive was the class session?</p>
                     </div>
-                    <div class="rating-group" id="workloadGroup">
-                        <button class="rating-btn" onclick="setRating('workload', 1)">1</button>
-                        <button class="rating-btn" onclick="setRating('workload', 2)">2</button>
-                        <button class="rating-btn active" onclick="setRating('workload', 3)">3</button>
-                        <button class="rating-btn" onclick="setRating('workload', 4)">4</button>
-                        <button class="rating-btn" onclick="setRating('workload', 5)">5</button>
+                    <div class="rating-group" id="engagementGroup">
+                        <button class="rating-btn" onclick="setRating('engagement', 1)">1</button>
+                        <button class="rating-btn" onclick="setRating('engagement', 2)">2</button>
+                        <button class="rating-btn active" onclick="setRating('engagement', 3)">3</button>
+                        <button class="rating-btn" onclick="setRating('engagement', 4)">4</button>
+                        <button class="rating-btn" onclick="setRating('engagement', 5)">5</button>
                     </div>
                     <div class="rating-labels">
-                        <span>Too Light</span><span>Overwhelming</span>
+                        <span>Boring</span><span>Very Engaging</span>
                     </div>
                 </div>
 
@@ -363,7 +382,7 @@
                     <textarea class="form-control" id="commentsInput" placeholder="Any specific feedback or struggles you want the professor to know?"></textarea>
                 </div>
 
-                <button class="btn-primary" style="margin-top: 16px;" onclick="submitPulseCheck()">Submit Pulse Check</button>
+                <button class="btn-primary" style="width: 100%; padding: 16px; font-size: 18px; border-radius: 8px; margin-top: 10px;" onclick="submitPulseCheck()">Submit Pulse Check</button>
                 <p style="text-align: center; font-size: 12px; color: var(--text-gray); margin-top: 12px;">Your response is completely anonymous.</p>
             </div>
 
@@ -407,12 +426,48 @@
     </div>
 
     <script>
+
         // Store the active ratings (defaulting to 3)
-        let currentRatings = {
-            pacing: 3,
-            comp: 3,
-            workload: 3
-        };
+        let currentStudentId = null; // Remembers who is logged in
+        
+        // Track our 4 ERD variables
+        let clarityScore = 3;
+        let pacingScore = 3;
+        let comprehensionScore = 3;
+        let engagementScore = 3;
+
+        // Simple function to highlight buttons and save the score
+        function setRating(category, score) {
+            // Update the variable dynamically
+            if (category === 'clarity') clarityScore = score;
+            if (category === 'pacing') pacingScore = score;
+            if (category === 'comprehension') comprehensionScore = score;
+            if (category === 'engagement') engagementScore = score;
+
+            // Optional: Add visual logic here to color the clicked button purple
+        }
+
+        function loadStudentStats() {
+            if (data.recent_evals.length === 0) {
+                    recentContainer.innerHTML = '<p>No evaluations submitted yet.</p>';
+                } else {
+                    // CHANGED 'eval' to 'evaluation' here
+                    data.recent_evals.forEach(evaluation => { 
+                        recentContainer.innerHTML += `
+                            <div class="submission-item">
+                                <div class="sub-header">
+                                    <strong>${evaluation.Course_Code}</strong>
+                                    <span class="sub-date">${evaluation.Topic}</span>
+                                </div>
+                                <div class="sub-tags">
+                                    <span class="tag">Understanding: ${evaluation.Comprehension_Score}/5</span>
+                                    <span class="tag">Workload: ${evaluation.Engagement_Score}/5</span>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+        }
 
         // --- Rating Button Logic ---
         function setRating(category, value) {
@@ -433,18 +488,33 @@
 
         // --- View Switching Logic ---
         function handleLogin() {
-            const email = document.getElementById('emailInput').value;
-            const password = document.getElementById('passwordInput').value;
+            const email = document.getElementById('studentEmail').value;
+            const password = document.getElementById('studentPassword').value;
 
-            if (email && password) {
-                document.getElementById('login-view').classList.add('hidden');
-                document.getElementById('dashboard-view').classList.remove('hidden');
-                
-                const namePart = email.split('@')[0];
-                document.getElementById('studentNameDisplay').innerText = namePart;
-            } else {
-                alert("Please enter an email and password.");
-            }
+            if (!email || !password) return;
+
+            // Ask the Flask server if this student exists
+            fetch('http://localhost:5000/api/student_login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: email })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    currentStudentId = data.student_id; // Save the ID!
+                    
+                    document.getElementById('login-view').classList.add('hidden');
+                    document.getElementById('dashboard-view').classList.remove('hidden');
+                    document.getElementById('studentNameDisplay').innerText = data.first_name;
+                    
+                    loadCourses(); // Load the dropdowns
+                    loadStudentStats(); // Load their personal stats!
+                } else {
+                    alert("Login failed: " + data.message);
+                }
+            })
+            .catch(err => console.error("Login Error:", err));
         }
 
         function handleLogout() {
@@ -457,39 +527,101 @@
 
         // --- Submission to Backend (Flask) ---
         function submitPulseCheck() {
-            const payload = {
-                course: document.getElementById('courseSelect').value,
-                topics: document.getElementById('topicsInput').value,
-                pacing_score: currentRatings.pacing,          // Using the JS variables now!
-                comprehension_score: currentRatings.comp,     // Using the JS variables now!
-                workload_score: currentRatings.workload,      // Using the JS variables now!
-                study_hours: document.getElementById('hoursInput').value,
-                comments: document.getElementById('commentsInput').value
-            };
-
-            if (!payload.topics) {
-                alert("Please enter the topics covered this week.");
+            // 1. Security Check: Are they logged in?
+            if (!currentStudentId) {
+                alert("Security Error: Please log out and log back in.");
                 return;
             }
 
+            // 2. Validation Check: Did they select a topic?
+            const sessionId = document.getElementById('topicsSelect').value;
+            if (!sessionId) {
+                alert("Please select a Course and Topic before submitting!");
+                return;
+            }
+
+            // (Assuming pacingScore, comprehensionScore, and workloadScore are updated by your 1-5 buttons)
+            // 3. Build the payload matching the ERD perfectly
+            const evaluationData = {
+                student_id: currentStudentId,
+                session_id: sessionId,
+                clarity_score: clarityScore,
+                pacing_score: pacingScore,
+                comprehension_score: comprehensionScore,
+                engagement_score: engagementScore,
+                comments: document.getElementById('comments') ? document.getElementById('comments').value : ""
+            };
+
+            // 4. Send the data to Flask
             fetch('http://localhost:5000/submit_evaluation', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(payload)
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(evaluationData)
             })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) throw new Error("Server rejected the request");
+                return response.json();
+            })
             .then(data => {
-                alert("Evaluation submitted successfully! Thank you for your feedback.");
-                document.getElementById('topicsInput').value = '';
-                document.getElementById('commentsInput').value = '';
+                // Success!
+                alert("Pulse Check Submitted Successfully!");
+                
+                // Clear the text box for the next submission
+                if (document.getElementById('comments')) {
+                    document.getElementById('comments').value = ""; 
+                }
+                
+                // Instantly refresh the stats at the bottom of the page!
+                loadStudentStats(); 
             })
-            .catch(error => {
-                console.error('Error:', error);
-                alert("UI Test Success! (Make sure Flask is running on port 5000 to actually save data).");
+            .catch(err => {
+                console.error("Submission Error:", err);
+                alert("Failed to submit. Please ensure your Python server is running.");
             });
         }
+
+        // 1. Fetch courses as soon as the student logs in
+        function loadCourses() {
+            fetch('http://localhost:5000/api/get_courses')
+            .then(response => response.json())
+            .then(data => {
+                const courseDropdown = document.getElementById('courseSelect');
+                courseDropdown.innerHTML = '<option value="">-- Choose a course --</option>'; // Clear loading text
+                
+                // Loop through database results and create <option> tags
+                data.forEach(course => {
+                    courseDropdown.innerHTML += `<option value="${course.Course_Code}">${course.Course_Code} - ${course.Course_Title}</option>`;
+                });
+            });
+        }
+
+        // 2. Fetch topics ONLY when a specific course is clicked
+        function loadTopics() {
+            const selectedCourse = document.getElementById('courseSelect').value;
+            const topicDropdown = document.getElementById('topicsSelect');
+            
+            // If they select the blank default option, reset the topics
+            if (!selectedCourse) {
+                topicDropdown.innerHTML = '<option value="">Select a course first...</option>';
+                return;
+            }
+
+            topicDropdown.innerHTML = '<option value="">Loading topics...</option>';
+
+            // Send the selected course code to the Flask API
+            fetch(`http://localhost:5000/api/get_topics?course=${selectedCourse}`)
+            .then(response => response.json())
+            .then(data => {
+                topicDropdown.innerHTML = '<option value="">-- Select the topic --</option>';
+                
+                data.forEach(session => {
+                    // We save the Session_ID as the value so the database knows EXACTLY which class this is!
+                    topicDropdown.innerHTML += `<option value="${session.Session_ID}">${session.Topic}</option>`;
+                });
+            });
+        }
+        
+    
     </script>
 </body>
 </html>

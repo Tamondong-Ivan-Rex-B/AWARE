@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A.W.A.R.E. Student Portal</title>
+    <style>
+        /* --- GLOBAL STYLES & COLORS --- */
+        :root {
+            --bg-color: #f4f6f8;
+            --card-bg: #ffffff;
+            --primary-purple: #6d28d9;
+            --primary-hover: #5b21b6;
+            --text-dark: #1e293b;
+            --text-gray: #64748b;
+            --border-color: #e2e8f0;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-dark);
+            line-height: 1.6;
+        }
+
+        /* --- UTILITY CLASSES --- */
+        .hidden { display: none !important; }
+        .btn-primary {
+            background-color: #0f172a;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            width: 100%;
+            transition: background 0.2s;
+        }
+        .btn-primary:hover { background-color: #1e293b; }
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            border: 1px solid var(--border-color);
+        }
+
+        /* --- LOGIN VIEW --- */
+        #login-view {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .login-container {
+            width: 100%;
+            max-width: 400px;
+        }
+        .login-header {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+        .logo-icon {
+            background: #2563eb;
+            color: white;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            margin-bottom: 12px;
+        }
+        .form-group { margin-bottom: 16px; }
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+        .form-control {
+            width: 100%;
+            padding: 10px 14px;
+            background-color: #f8fafc;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .demo-box {
+            background-color: #f8fafc;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 16px;
+            margin-top: 24px;
+            font-size: 13px;
+            color: var(--text-gray);
+        }
+
+        /* --- DASHBOARD VIEW --- */
+        #dashboard-view {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        /* Navbar */
+        .navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 0;
+            margin-bottom: 20px;
+        }
+        .nav-brand { display: flex; align-items: center; gap: 12px; }
+        .nav-brand h2 { font-size: 20px; }
+        .nav-brand p { font-size: 14px; color: var(--text-gray); }
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        /* Purple Banner */
+        .hero-banner {
+            background: linear-gradient(135deg, var(--primary-purple), #8b5cf6);
+            color: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Grid Layout */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 24px;
+        }
+
+        @media (max-width: 768px) {
+            .dashboard-grid { grid-template-columns: 1fr; }
+        }
+
+        /* 5-Button Rating Styles (Replaces Sliders) */
+        .rating-container { margin-bottom: 32px; }
+        .rating-header { margin-bottom: 12px; }
+        .rating-header h4 { margin-bottom: 4px; }
+        .rating-header p { font-size: 13px; color: var(--text-gray); }
+        
+        .rating-group {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .rating-btn {
+            flex: 1;
+            padding: 12px 0;
+            background-color: #f8fafc;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            color: var(--text-dark);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .rating-btn:hover {
+            background-color: #e2e8f0;
+        }
+        .rating-btn.active {
+            background-color: var(--primary-purple);
+            color: white;
+            border-color: var(--primary-purple);
+            box-shadow: 0 4px 6px -1px rgba(109, 40, 217, 0.3);
+        }
+        .rating-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: var(--text-gray);
+            padding: 0 4px;
+        }
+
+        textarea.form-control {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        /* Sidebar Elements */
+        .stat-box {
+            background: #f8fafc;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+        .recent-item {
+            background: #f8fafc;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 12px;
+            font-size: 14px;
+        }
+        .badge {
+            background: white;
+            border: 1px solid var(--border-color);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-right: 6px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="login-view">
+        <div class="login-header">
+            <div class="logo-icon">🎓</div>
+            <h2>Welcome to A.W.A.R.E.</h2>
+            <p style="color: var(--text-gray); margin-top: 4px;">Sign in to access your dashboard</p>
+        </div>
+        
+        <div class="card login-container">
+            <h3 style="margin-bottom: 16px;">Sign In</h3>
+            
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" class="form-control" id="emailInput" placeholder="your.email@tip.edu.ph">
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" class="form-control" id="passwordInput" placeholder="Enter your password">
+            </div>
+            
+            <button class="btn-primary" onclick="handleLogin()">Sign In</button>
+
+            <div class="demo-box">
+                <strong>Demo Credentials:</strong><br>
+                Student: student@tip.edu.ph / password123
+            </div>
+        </div>
+    </div>
+
+
+    <div id="dashboard-view" class="hidden">
+        
+        <nav class="navbar">
+            <div class="nav-brand">
+                <div class="logo-icon" style="width: 40px; height: 40px; font-size: 20px;">🎓</div>
+                <div>
+                    <h2>Student Dashboard</h2>
+                    <p>Welcome, <span id="studentNameDisplay">Student User</span></p>
+                </div>
+            </div>
+            <button class="btn-outline" onclick="handleLogout()">[→ Logout</button>
+        </nav>
+
+        <div class="hero-banner">
+            <div>
+                <p style="opacity: 0.8; font-size: 14px; margin-bottom: 4px;">📅 Academic Week</p>
+                <h1 style="font-size: 28px;">Week 5 Pulse Check</h1>
+                <p style="opacity: 0.9; margin-top: 4px;">Submit your anonymous feedback before Friday evening</p>
+            </div>
+            <div style="text-align: right;">
+                <p style="opacity: 0.8; font-size: 14px;">Submissions This Term</p>
+                <h2 style="font-size: 32px;">4 / 15</h2>
+            </div>
+        </div>
+
+        <div class="dashboard-grid">
+            
+            <div class="card">
+                <h3 style="margin-bottom: 20px; display: flex; align-items: center; gap: 8px;">
+                    <span style="color: #10b981;">●</span> Weekly Evaluation
+                </h3>
+                
+                <div class="form-group">
+                    <label>Select Course *</label>
+                    <select class="form-control" id="courseSelect">
+                        <option value="CPE111">CPE111 - Internet of Things</option>
+                        <option value="MATH201">MATH201 - Linear Programming</option>
+                    </select>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 32px;">
+                    <label>Topics Covered This Week *</label>
+                    <input type="text" class="form-control" id="topicsInput" placeholder="e.g., Microcontrollers, Logic Gates">
+                </div>
+
+                <div class="rating-container">
+                    <div class="rating-header">
+                        <h4>Course Pacing</h4>
+                        <p>How was the pace of the material this week?</p>
+                    </div>
+                    <div class="rating-group" id="pacingGroup">
+                        <button class="rating-btn" onclick="setRating('pacing', 1)">1</button>
+                        <button class="rating-btn" onclick="setRating('pacing', 2)">2</button>
+                        <button class="rating-btn active" onclick="setRating('pacing', 3)">3</button>
+                        <button class="rating-btn" onclick="setRating('pacing', 4)">4</button>
+                        <button class="rating-btn" onclick="setRating('pacing', 5)">5</button>
+                    </div>
+                    <div class="rating-labels">
+                        <span>Too Slow</span><span>Too Fast</span>
+                    </div>
+                </div>
+
+                <div class="rating-container">
+                    <div class="rating-header">
+                        <h4>Understanding Level</h4>
+                        <p>How well did you understand this week's topics?</p>
+                    </div>
+                    <div class="rating-group" id="compGroup">
+                        <button class="rating-btn" onclick="setRating('comp', 1)">1</button>
+                        <button class="rating-btn" onclick="setRating('comp', 2)">2</button>
+                        <button class="rating-btn active" onclick="setRating('comp', 3)">3</button>
+                        <button class="rating-btn" onclick="setRating('comp', 4)">4</button>
+                        <button class="rating-btn" onclick="setRating('comp', 5)">5</button>
+                    </div>
+                    <div class="rating-labels">
+                        <span>Confused</span><span>Completely Clear</span>
+                    </div>
+                </div>
+
+                <div class="rating-container">
+                    <div class="rating-header">
+                        <h4>Workload Balance</h4>
+                        <p>How was this week's workload?</p>
+                    </div>
+                    <div class="rating-group" id="workloadGroup">
+                        <button class="rating-btn" onclick="setRating('workload', 1)">1</button>
+                        <button class="rating-btn" onclick="setRating('workload', 2)">2</button>
+                        <button class="rating-btn active" onclick="setRating('workload', 3)">3</button>
+                        <button class="rating-btn" onclick="setRating('workload', 4)">4</button>
+                        <button class="rating-btn" onclick="setRating('workload', 5)">5</button>
+                    </div>
+                    <div class="rating-labels">
+                        <span>Too Light</span><span>Overwhelming</span>
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-top: 16px;">
+                    <label>Study Hours This Week</label>
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <input type="number" class="form-control" id="hoursInput" min="0" value="5" style="width: 100px;">
+                        <span style="color: var(--text-gray);">hours</span>
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-top: 16px;">
+                    <label>Additional Comments (Optional)</label>
+                    <textarea class="form-control" id="commentsInput" placeholder="Any specific feedback or struggles you want the professor to know?"></textarea>
+                </div>
+
+                <button class="btn-primary" style="margin-top: 16px;" onclick="submitPulseCheck()">Submit Pulse Check</button>
+                <p style="text-align: center; font-size: 12px; color: var(--text-gray); margin-top: 12px;">Your response is completely anonymous.</p>
+            </div>
+
+            <div>
+                <div class="card" style="margin-bottom: 24px;">
+                    <h3 style="margin-bottom: 16px;">Your Stats</h3>
+                    <div class="stat-box" style="border-left: 4px solid var(--primary-purple);">
+                        <p style="color: var(--text-gray); font-size: 13px;">Total Submissions</p>
+                        <h3>4</h3>
+                    </div>
+                    <div class="stat-box" style="border-left: 4px solid #10b981;">
+                        <p style="color: var(--text-gray); font-size: 13px;">Current Streak</p>
+                        <h3>2 Weeks</h3>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3 style="margin-bottom: 16px;">Recent Submissions</h3>
+                    <div class="recent-item">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                            <strong>CPE111</strong> <span style="color: var(--text-gray); font-size: 12px;">Week 4</span>
+                        </div>
+                        <div>
+                            <span class="badge">Understanding: 4/5</span>
+                            <span class="badge">Workload: 3/5</span>
+                        </div>
+                    </div>
+                    <div class="recent-item">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                            <strong>MATH201</strong> <span style="color: var(--text-gray); font-size: 12px;">Week 4</span>
+                        </div>
+                        <div>
+                            <span class="badge">Understanding: 2/5</span>
+                            <span class="badge">Workload: 5/5</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // Store the active ratings (defaulting to 3)
+        let currentRatings = {
+            pacing: 3,
+            comp: 3,
+            workload: 3
+        };
+
+        // --- Rating Button Logic ---
+        function setRating(category, value) {
+            currentRatings[category] = value;
+            
+            // Get the specific group container
+            const group = document.getElementById(category + 'Group');
+            const buttons = group.getElementsByClassName('rating-btn');
+            
+            // Remove 'active' class from all buttons in this row
+            for(let i = 0; i < buttons.length; i++) {
+                buttons[i].classList.remove('active');
+            }
+            
+            // Add 'active' class to the clicked button (array is 0-indexed, value is 1-5)
+            buttons[value - 1].classList.add('active');
+        }
+
+        // --- View Switching Logic ---
+        function handleLogin() {
+            const email = document.getElementById('emailInput').value;
+            const password = document.getElementById('passwordInput').value;
+
+            if (email && password) {
+                document.getElementById('login-view').classList.add('hidden');
+                document.getElementById('dashboard-view').classList.remove('hidden');
+                
+                const namePart = email.split('@')[0];
+                document.getElementById('studentNameDisplay').innerText = namePart;
+            } else {
+                alert("Please enter an email and password.");
+            }
+        }
+
+        function handleLogout() {
+            document.getElementById('emailInput').value = '';
+            document.getElementById('passwordInput').value = '';
+            
+            document.getElementById('dashboard-view').classList.add('hidden');
+            document.getElementById('login-view').classList.remove('hidden');
+        }
+
+        // --- Submission to Backend (Flask) ---
+        function submitPulseCheck() {
+            const payload = {
+                course: document.getElementById('courseSelect').value,
+                topics: document.getElementById('topicsInput').value,
+                pacing_score: currentRatings.pacing,          // Using the JS variables now!
+                comprehension_score: currentRatings.comp,     // Using the JS variables now!
+                workload_score: currentRatings.workload,      // Using the JS variables now!
+                study_hours: document.getElementById('hoursInput').value,
+                comments: document.getElementById('commentsInput').value
+            };
+
+            if (!payload.topics) {
+                alert("Please enter the topics covered this week.");
+                return;
+            }
+
+            fetch('http://localhost:5000/submit_evaluation', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert("Evaluation submitted successfully! Thank you for your feedback.");
+                document.getElementById('topicsInput').value = '';
+                document.getElementById('commentsInput').value = '';
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert("UI Test Success! (Make sure Flask is running on port 5000 to actually save data).");
+            });
+        }
+    </script>
+</body>
+</html>

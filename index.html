@@ -369,17 +369,17 @@
                     </div>
                 </div>
 
-                <div class="form-group" style="margin-top: 16px;">
-                    <label>Study Hours This Week</label>
-                    <div style="display: flex; align-items: center; gap: 12px;">
-                        <input type="number" class="form-control" id="hoursInput" min="0" value="5" style="width: 100px;">
-                        <span style="color: var(--text-gray);">hours</span>
+                <div class="form-group" style="margin-bottom: 24px;">
+                    <label><b>Study Hours This Week</b><br><span style="color: gray; font-size: 12px;">How many hours did you spend studying this topic outside of class?</span></label>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <input type="number" class="form-control" id="studyHours" placeholder="0" min="0" max="168" style="width: 100px;">
+                        <span>hours</span>
                     </div>
                 </div>
 
-                <div class="form-group" style="margin-top: 16px;">
-                    <label>Additional Comments (Optional)</label>
-                    <textarea class="form-control" id="commentsInput" placeholder="Any specific feedback or struggles you want the professor to know?"></textarea>
+                <div class="form-group" style="margin-bottom: 24px;">
+                    <label><b>Additional Comments (Optional)</b></label>
+                    <textarea class="form-control" id="comments" rows="4" placeholder="Any specific feedback..."></textarea>
                 </div>
 
                 <button class="btn-primary" style="width: 100%; padding: 16px; font-size: 18px; border-radius: 8px; margin-top: 10px;" onclick="submitPulseCheck()">Submit Pulse Check</button>
@@ -428,23 +428,39 @@
     <script>
 
         // Store the active ratings (defaulting to 3)
-        let currentStudentId = null; // Remembers who is logged in
+        let currentStudentId = null; 
         
-        // Track our 4 ERD variables
+        // 1. The 4 variables tracking your scores
         let clarityScore = 3;
         let pacingScore = 3;
         let comprehensionScore = 3;
         let engagementScore = 3;
 
-        // Simple function to highlight buttons and save the score
+        // 2. The completely fixed click function
         function setRating(category, score) {
-            // Update the variable dynamically
+            // 1. Update the database variables
             if (category === 'clarity') clarityScore = score;
             if (category === 'pacing') pacingScore = score;
             if (category === 'comprehension') comprehensionScore = score;
             if (category === 'engagement') engagementScore = score;
 
-            // Optional: Add visual logic here to color the clicked button purple
+            // 2. Safely find the HTML group
+            const group = document.getElementById(category + 'Group');
+            
+            if (group) {
+                // Find all buttons inside this specific group
+                const buttons = group.querySelectorAll('button'); 
+                
+                // Clear purple from all, then add to the clicked one
+                buttons.forEach(btn => btn.classList.remove('active'));
+                buttons.forEach(btn => {
+                    if (parseInt(btn.innerText) === score) {
+                        btn.classList.add('active'); 
+                    }
+                });
+            } else {
+                console.error("HTML Error: Could not find id='" + category + "Group'");
+            }
         }
 
         function loadStudentStats() {
@@ -549,6 +565,7 @@
                 pacing_score: pacingScore,
                 comprehension_score: comprehensionScore,
                 engagement_score: engagementScore,
+                study_hours: document.getElementById('studyHours') ? document.getElementById('studyHours').value || 0 : 0, // Captures the hours or defaults to 0
                 comments: document.getElementById('comments') ? document.getElementById('comments').value : ""
             };
 
@@ -563,20 +580,23 @@
                 return response.json();
             })
             .then(data => {
-                // Success!
+                // Tell the user it worked FIRST!
                 alert("Pulse Check Submitted Successfully!");
                 
-                // Clear the text box for the next submission
-                if (document.getElementById('comments')) {
-                    document.getElementById('comments').value = ""; 
-                }
+                // Clear the text boxes safely
+                if (document.getElementById('comments')) document.getElementById('comments').value = ""; 
+                if (document.getElementById('studyHours')) document.getElementById('studyHours').value = ""; 
                 
-                // Instantly refresh the stats at the bottom of the page!
-                loadStudentStats(); 
+                // Try to reload stats, but don't crash if the UI is missing
+                try {
+                    loadStudentStats(); 
+                } catch (e) {
+                    console.warn("Data saved, but stats failed to reload visually: ", e);
+                }
             })
             .catch(err => {
-                console.error("Submission Error:", err);
-                alert("Failed to submit. Please ensure your Python server is running.");
+                console.error("Real Submission Error:", err);
+                alert("Failed to submit. Check the developer console for details.");
             });
         }
 

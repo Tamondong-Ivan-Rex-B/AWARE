@@ -40,11 +40,11 @@ class DashboardPage(QWidget):
         
         self.val_pacing, box_pacing = self.create_kpi("Avg Pacing", "0.0", "#f59e0b")
         self.val_comp, box_comp = self.create_kpi("Avg Understanding", "0.0", "#3b82f6")
-        self.val_workload, box_workload = self.create_kpi("Avg Workload", "0.0", "#ef4444")
+        #self.val_workload, box_workload = self.create_kpi("Avg Workload", "0.0", "#ef4444")
         
         kpi_layout.addWidget(box_pacing)
         kpi_layout.addWidget(box_comp)
-        kpi_layout.addWidget(box_workload)
+        #kpi_layout.addWidget(box_workload)
         
         # --- TABLE VIEW (Raw Evaluations) ---
         table_container = QFrame()
@@ -54,8 +54,10 @@ class DashboardPage(QWidget):
         table_title = QLabel("<b>Recent Student Evaluations</b>")
         
         self.table = QTableWidget()
-        self.table.setColumnCount(7)
-        self.table.setHorizontalHeaderLabels(["Course", "Topics", "Pacing", "Understanding", "Workload", "Hours", "Comments"])
+        self.table.setColumnCount(8)
+        self.table.setHorizontalHeaderLabels([
+            "Course", "Topics", "Clarity", "Pacing", "Understanding", "Engagement", "Hours", "Comments"
+        ])
         
         header = self.table.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
@@ -105,24 +107,27 @@ class DashboardPage(QWidget):
             if avgs and avgs.get("avg_pacing") is not None:
                 self.val_pacing.setText(f"{float(avgs['avg_pacing']):.1f}")
                 self.val_comp.setText(f"{float(avgs['avg_comp']):.1f}")
-                self.val_workload.setText(f"{float(avgs['avg_workload']):.1f}")
+                #self.val_workload.setText(f"{float(avgs['avg_workload']):.1f}")
             else:
                 self.val_pacing.setText("N/A")
                 self.val_comp.setText("N/A")
-                self.val_workload.setText("N/A")
+                #self.val_workload.setText("N/A")
 
-            # Update Table
-            evals = data.get("evaluations", [])
-            self.table.setRowCount(len(evals))
+            # --- Update Table ---
+            evaluations = data.get("evaluations", [])
+            self.table.setRowCount(len(evaluations))
             
-            for row_idx, ev in enumerate(evals):
-                self.table.setItem(row_idx, 0, QTableWidgetItem(str(ev.get("Course_Code", ""))))
-                self.table.setItem(row_idx, 1, QTableWidgetItem(str(ev.get("Topics", ""))))
-                self.table.setItem(row_idx, 2, QTableWidgetItem(str(ev.get("Pacing_Score", ""))))
-                self.table.setItem(row_idx, 3, QTableWidgetItem(str(ev.get("Comprehension_Score", ""))))
-                self.table.setItem(row_idx, 4, QTableWidgetItem(str(ev.get("Workload_Score", ""))))
-                self.table.setItem(row_idx, 5, QTableWidgetItem(str(ev.get("Study_Hours", ""))))
-                self.table.setItem(row_idx, 6, QTableWidgetItem(str(ev.get("Comments", ""))))
+            for row_idx, eval_data in enumerate(evaluations):
+                self.table.setItem(row_idx, 0, QTableWidgetItem(str(eval_data.get("Course_Code", ""))))
+                self.table.setItem(row_idx, 1, QTableWidgetItem(str(eval_data.get("Topic", ""))))
+                self.table.setItem(row_idx, 2, QTableWidgetItem(str(eval_data.get("Clarity_Score", ""))))
+                self.table.setItem(row_idx, 3, QTableWidgetItem(str(eval_data.get("Pacing_Score", ""))))
+                self.table.setItem(row_idx, 4, QTableWidgetItem(str(eval_data.get("Comprehension_Score", ""))))
+                self.table.setItem(row_idx, 5, QTableWidgetItem(str(eval_data.get("Engagement_Score", ""))))
+                
+                self.table.setItem(row_idx, 6, QTableWidgetItem(str(eval_data.get("Study_Hours", "")))) 
+                
+                self.table.setItem(row_idx, 7, QTableWidgetItem(str(eval_data.get("Comments", ""))))
                 
         except requests.exceptions.ConnectionError:
             QMessageBox.critical(self, "Connection Error", "Cannot connect to the Flask server. Is server.py running?")

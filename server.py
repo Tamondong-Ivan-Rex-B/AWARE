@@ -68,24 +68,24 @@ def get_topics():
 def submit_evaluation():
     data = request.json
     
-    # Grab all data from the JS payload
     student_id = data.get('student_id')
     session_id = data.get('session_id') 
     clarity = data.get('clarity_score')
     pacing = data.get('pacing_score')
     comprehension = data.get('comprehension_score')
     engagement = data.get('engagement_score') 
+    study_hours = data.get('study_hours', 0) # <--- GRAB THE HOURS
     comments = data.get('comments', '')
     
     db = get_db_connection()
     cursor = db.cursor()
     
-    # Insert all 4 scores into the database
+    # Update the SQL to include Study_Hours
     sql = """INSERT INTO Evaluation 
-             (Session_ID, Student_ID, Clarity_Score, Pacing_Score, Comprehension_Score, Engagement_Score, Confusing_Point) 
-             VALUES (%s, %s, %s, %s, %s, %s, %s)""" 
+             (Session_ID, Student_ID, Clarity_Score, Pacing_Score, Comprehension_Score, Engagement_Score, Study_Hours, Confusing_Point) 
+             VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""" 
              
-    cursor.execute(sql, (session_id, student_id, clarity, pacing, comprehension, engagement, comments))
+    cursor.execute(sql, (session_id, student_id, clarity, pacing, comprehension, engagement, study_hours, comments))
     db.commit()
     cursor.close()
     db.close()
@@ -129,10 +129,10 @@ def get_dashboard_data():
     db = get_db_connection()
     cursor = db.cursor(dictionary=True)
     
-    # 1. Fetch all raw evaluations using JOINs to match the new ERD
+    # 1. Fetch all 5 scores for the table
     cursor.execute("""
-        SELECT c.Course_Code, s.Topic, e.Pacing_Score, e.Comprehension_Score, 
-               e.Engagement_Score as Workload_Score, 'N/A' as Study_Hours, e.Confusing_Point as Comments
+        SELECT c.Course_Code, s.Topic, e.Clarity_Score, e.Pacing_Score, 
+               e.Comprehension_Score, e.Engagement_Score, e.Study_Hours, e.Confusing_Point as Comments
         FROM Evaluation e
         JOIN Class_Session s ON e.Session_ID = s.Session_ID
         JOIN Course c ON s.Course_Code = c.Course_Code
@@ -140,12 +140,13 @@ def get_dashboard_data():
     """)
     evaluations = cursor.fetchall()
     
-    # 2. Calculate the averages for the top KPI boxes
+    # 2. Calculate the 4 averages
     cursor.execute("""
         SELECT 
+            AVG(Clarity_Score) as avg_clarity,
             AVG(Pacing_Score) as avg_pacing,
             AVG(Comprehension_Score) as avg_comp,
-            AVG(Engagement_Score) as avg_workload
+            AVG(Engagement_Score) as avg_engage
         FROM Evaluation
     """)
     averages = cursor.fetchone()

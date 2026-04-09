@@ -110,4 +110,5 @@ def register():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    # Changed from 5000 to 5001 to match your login.py
+    app.run(debug=True, port=5001)

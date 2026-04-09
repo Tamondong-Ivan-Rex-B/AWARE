@@ -1,14 +1,12 @@
 import sys
 from PyQt6.QtWidgets import QApplication, QMainWindow, QStackedWidget
-
-# Import your separated pages
 from pages.landing import LandingPage
 from pages.login import LoginPage
 from pages.dashboard import DashboardPage
 
-#Demo Credentials:
-#Student: student@university.edu / student123
-#Admin: admin@university.edu / admin123
+# Demo Credentials:
+# Student: student@university.edu / student123
+# Admin: admin@university.edu / admin123
 
 # ==========================================
 # GLOBAL STYLE SHEET (QSS)
@@ -94,30 +92,34 @@ STYLESHEET = """
     }
 """
 
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("A.W.A.R.E. Desktop Application")
         self.resize(1200, 800)
         self.setStyleSheet(STYLESHEET)
-        
-        # The Stacked Widget holds all our pages
+
         self.stacked_widget = QStackedWidget()
         self.setCentralWidget(self.stacked_widget)
-        
-        # Initialize the imported Pages, passing 'self' so they can control the window
+
         self.landing_page = LandingPage(self)
         self.login_page = LoginPage(self)
         self.dashboard_page = DashboardPage(self)
-        
-        # Add pages to the stack (Index 0, 1, 2)
-        self.stacked_widget.addWidget(self.landing_page)  
-        self.stacked_widget.addWidget(self.login_page)    
-        self.stacked_widget.addWidget(self.dashboard_page)
 
-    def switch_page(self, index):
-        """Helper function called by the pages to switch views smoothly"""
+        self.stacked_widget.addWidget(self.landing_page)  # Index 0
+        self.stacked_widget.addWidget(self.login_page)  # Index 1
+        self.stacked_widget.addWidget(self.dashboard_page)  # Index 2
+
+    def switch_page(self, index, data=None):
+        """Fixed: Now accepts 'data' so login doesn't crash the app"""
+        if index == 2 and data:
+            # if the DashboardPage has an update_user_info method, call it
+            if hasattr(self.dashboard_page, "update_user_info"):
+                self.dashboard_page.update_user_info(data)
+
         self.stacked_widget.setCurrentIndex(index)
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

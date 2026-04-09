@@ -1,164 +1,113 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import mysql.connector
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
-# CORS allows your HTML website to talk to this Python server
-CORS(app) 
+CORS(app)
 
-# Helper function to connect to the database
+
+# --- Database Connection ---
 def get_db_connection():
-    return mysql.connector.connect(
-        host="localhost",
-        user="root",          # Default XAMPP username
-        password="",          # Default XAMPP password (blank)
-        database="aware_db"
-    )
+    try:
+        return mysql.connector.connect(
+            host="localhost", user="root", password="", database="aware_db"
+        )
+    except mysql.connector.Error as err:
+        print(f"MySQL Connection Error: {err}")
+        return None
 
-# ==========================================
-# 1. STUDENT PORTAL ROUTES (Web App)
-# ==========================================
 
-@app.route('/api/student_login', methods=['POST'])
-def student_login():
+@app.route("/login", methods=["POST"])
+def login():
     data = request.json
-    email = data.get('email', '')
-    
-    # Extract the Student ID from the email (e.g., "2024001@tip.edu.ph" -> "2024001")
-    student_id = email.split('@')[0] 
-    
+    email = data.get("email")
+    password = data.get("password")
+
+    # 1. Hardcoded Demo Credentials (Fallback)
+    DEMO_USERS = {
+        "admin@tip.edu.ph": "admin123",
+        "student@tip.edu.ph": "student123",
+        "admin@university.edu": "admin123",
+        "student@university.edu": "student123",
+    }
+
+    # check hardcoded first
+    if email in DEMO_USERS and DEMO_USERS[email] == password:
+        return jsonify(
+            {"status": "success", "user": {"name": "Demo User", "email": email}}
+        ), 200
+
+    # 2. Database Lookup (Real Authentication)
     db = get_db_connection()
-    cursor = db.cursor(dictionary=True)
-    cursor.execute("SELECT Student_ID, First_Name FROM Student WHERE Student_ID = %s", (student_id,))
-    student = cursor.fetchone()
-    cursor.close()
-    db.close()
-    
-    if student:
-        return jsonify({"success": True, "student_id": student['Student_ID'], "first_name": student['First_Name']})
-    else:
-        return jsonify({"success": False, "message": "Student ID not found in database."}), 401
+    if db:
+        cursor = db.cursor(dictionary=True)
+        try:
+            cursor.execute("SELECT * FROM students WHERE email = %s", (email,))
+            user = cursor.fetchone()
+
+            # Verify hashed password
+            if user and check_password_hash(user["password"], password):
+                return jsonify(
+                    {
+                        "status": "success",
+                        "user": {"name": user["name"], "email": user["email"]},
+                    }
+                ), 200
+        except Exception as e:
+            print(f"Database Query Error: {e}")
+        finally:
+            db.close()
+
+    # 3. Fail if neither worked
+    return jsonify(
+        {
+            "status": "error",
+            "message": "Incorrect username or password. Please try again.",
+        }
+    ), 401
 
 
-@app.route('/api/get_courses', methods=['GET'])
-def get_courses():
-    db = get_db_connection()
-    cursor = db.cursor(dictionary=True)
-    cursor.execute("SELECT Course_Code, Course_Title FROM Course")
-    courses = cursor.fetchall()
-    cursor.close()
-    db.close()
-    return jsonify(courses)
-
-
-@app.route('/api/get_topics', methods=['GET'])
-def get_topics():
-    course_code = request.args.get('course') 
-    db = get_db_connection()
-    cursor = db.cursor(dictionary=True)
-    sql = "SELECT Session_ID, Topic FROM Class_Session WHERE Course_Code = %s"
-    cursor.execute(sql, (course_code,))
-    topics = cursor.fetchall()
-    cursor.close()
-    db.close()
-    return jsonify(topics)
-
-
-@app.route('/submit_evaluation', methods=['POST'])
-def submit_evaluation():
+# --- Sign Up Route ---
+@app.route("/register", methods=["POST"])
+def register():
     data = request.json
-    
-    student_id = data.get('student_id')
-    session_id = data.get('session_id') 
-    clarity = data.get('clarity_score')
-    pacing = data.get('pacing_score')
-    comprehension = data.get('comprehension_score')
-    engagement = data.get('engagement_score') 
-    study_hours = data.get('study_hours', 0) # <--- GRAB THE HOURS
-    comments = data.get('comments', '')
-    
+    name = data.get("name")
+    email = data.get("email")
+    password = data.get("password")
+
+    if not all([name, email, password]):
+        return jsonify({"status": "error", "message": "All fields are required"}), 400
+
     db = get_db_connection()
+    if not db:
+        return jsonify(
+            {"status": "error", "message": "Database connection failed"}
+        ), 500
+
     cursor = db.cursor()
-    
-    # Update the SQL to include Study_Hours
-    sql = """INSERT INTO Evaluation 
-             (Session_ID, Student_ID, Clarity_Score, Pacing_Score, Comprehension_Score, Engagement_Score, Study_Hours, Confusing_Point) 
-             VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""" 
-             
-    cursor.execute(sql, (session_id, student_id, clarity, pacing, comprehension, engagement, study_hours, comments))
-    db.commit()
-    cursor.close()
-    db.close()
-    
-    return jsonify({"message": "Evaluation saved successfully!"})
+    try:
+        # check if email exists
+        cursor.execute("SELECT id FROM students WHERE email = %s", (email,))
+        if cursor.fetchone():
+            return jsonify(
+                {"status": "error", "message": "Email already registered"}
+            ), 409
+
+        # security: Hash the password
+        hashed_password = generate_password_hash(password)
+        cursor.execute(
+            "INSERT INTO students (name, email, password) VALUES (%s, %s, %s)",
+            (name, email, hashed_password),
+        )
+        db.commit()
+        return jsonify({"status": "success", "message": "User created!"}), 201
+
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        db.close()
 
 
-@app.route('/api/get_student_stats', methods=['GET'])
-def get_student_stats():
-    student_id = request.args.get('student_id')
-    db = get_db_connection()
-    cursor = db.cursor(dictionary=True)
-    
-    cursor.execute("SELECT COUNT(*) as total FROM Evaluation WHERE Student_ID = %s", (student_id,))
-    total_subs = cursor.fetchone()['total']
-    
-    cursor.execute("""
-        SELECT c.Course_Code, s.Topic, e.Comprehension_Score, e.Engagement_Score
-        FROM Evaluation e
-        JOIN Class_Session s ON e.Session_ID = s.Session_ID
-        JOIN Course c ON s.Course_Code = c.Course_Code
-        WHERE e.Student_ID = %s
-        ORDER BY e.Evaluation_ID DESC LIMIT 3
-    """, (student_id,))
-    recent = cursor.fetchall()
-    
-    cursor.close()
-    db.close()
-    
-    return jsonify({
-        "total_submissions": total_subs,
-        "recent_evals": recent
-    })
-
-# ==========================================
-# 2. ADMIN DASHBOARD ROUTES (PyQt6 Desktop App)
-# ==========================================
-
-@app.route('/api/get_dashboard_data', methods=['GET'])
-def get_dashboard_data():
-    db = get_db_connection()
-    cursor = db.cursor(dictionary=True)
-    
-    # 1. Fetch all 5 scores for the table
-    cursor.execute("""
-        SELECT c.Course_Code, s.Topic, e.Clarity_Score, e.Pacing_Score, 
-               e.Comprehension_Score, e.Engagement_Score, e.Study_Hours, e.Confusing_Point as Comments
-        FROM Evaluation e
-        JOIN Class_Session s ON e.Session_ID = s.Session_ID
-        JOIN Course c ON s.Course_Code = c.Course_Code
-        ORDER BY e.Evaluation_ID DESC
-    """)
-    evaluations = cursor.fetchall()
-    
-    # 2. Calculate the 4 averages
-    cursor.execute("""
-        SELECT 
-            AVG(Clarity_Score) as avg_clarity,
-            AVG(Pacing_Score) as avg_pacing,
-            AVG(Comprehension_Score) as avg_comp,
-            AVG(Engagement_Score) as avg_engage
-        FROM Evaluation
-    """)
-    averages = cursor.fetchone()
-    
-    cursor.close()
-    db.close()
-    
-    return jsonify({
-        "evaluations": evaluations,
-        "averages": averages
-    })
-
-# Start the server
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.run(debug=True, port=5000)

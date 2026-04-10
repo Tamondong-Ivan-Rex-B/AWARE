@@ -1,5 +1,5 @@
 import requests
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
+from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox,
                              QPushButton, QFrame, QTableWidget, QTableWidgetItem, 
                              QHeaderView, QMessageBox)
 from PyQt6.QtCore import Qt
@@ -14,26 +14,85 @@ class DashboardPage(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 20, 20, 20)
         
+        # --- Dropdowns ---
+        self.table = QTableWidget()
+
+         # Dropdowns
+    self.coursefilter = QComboBox()
+    self.course_filter.addItems(["All Courses", "CPE111", "CPE112", "CPE113"])
+
+    self.professor_filter = QComboBox()
+    self.professor_filter.addItems(["All Professors", "Prof. Santos", "Prof. Reyes"])
+
+    self.student_filter = QComboBox()
+    self.student_filter.addItems(["All Students", "Juan Dela Cruz", "Maria Clara"])
+     
+    self.evaluation_filter = QComboBox()
+    self.evaluation_filter.addItems(["All Evaluations", "Low Scores", "High Scores", "Needs Improvement"])
+
+     # Connect filters
+    self.course_filter.currentIndexChanged.connect(self.apply_filters)
+    self.professor_filter.currentIndexChanged.connect(self.apply_filters)
+    self.student_filter.currentIndexChanged.connect(self.apply_filters)
+    self.evaluation_filter.currentIndexChanged.connect(self.apply_filters)
+
+     # Layout
+    filter_layout = QHBoxLayout()
+    filter_layout.addWidget(self.course_filter)
+    filter_layout.addWidget(self.professor_filter)
+    filter_layout.addWidget(self.student_filter)
+    filter_layout.addWidget(self.evaluation_filter)
+
+    main_layout = QVBoxLayout()
+    main_layout.addLayout(filter_layout)
+    main_layout.addWidget(self.table)
+
+    self.setLayout(main_layout)
+
+    def apply_filters(self):
+     course = self.course_filter.currentText()
+     professor = self.professor_filter.currentText()
+     student = self.student_filter.currentText()
+     evaluation = self.evaluation_filter.currentText()
+
+     response = requests.get("http://127.0.0.1:5000/get_data", params={
+         "course": course,
+         "professor": professor,
+         "student": student,
+         "evaluation": evaluation
+     })
+
+     if response.status_code == 200:
+         data = response.json()
+         self.update_table(data)
+
+    def update_table(self, data):
+     self.table.setRowCount(len(data))
+     if len(data) > 0:
+         self.table.setColumnCount(len(data[0]))
+     for row_idx, row_data in enumerate(data):
+         for col_idx, value in enumerate(row_data):
+             self.table.setItem(row_idx, col_idx, QTableWidgetItem(str(value)))
         # --- Navbar ---
-        nav_layout = QHBoxLayout()
-        title = QLabel("<b>🎓 Admin Dashboard</b><br><span style='font-size:12px; color:gray;'>A.W.A.R.E. System Live Data</span>")
-        title.setFont(QFont("Segoe UI", 16))
+         nav_layout = QHBoxLayout()
+         title = QLabel("<b>🎓 Admin Dashboard</b><br><span style='font-size:12px; color:gray;'>A.W.A.R.E. System Live Data</span>")
+         title.setFont(QFont("Segoe UI", 16))
         
-        refresh_btn = QPushButton("↻ Refresh Data")
-        refresh_btn.setObjectName("PrimaryBtn")
-        refresh_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        refresh_btn.clicked.connect(self.fetch_live_data)
+         refresh_btn = QPushButton("↻ Refresh Data")
+         refresh_btn.setObjectName("PrimaryBtn")
+         refresh_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+         refresh_btn.clicked.connect(self.fetch_live_data)
         
-        logout_btn = QPushButton("Logout")
-        logout_btn.setObjectName("OutlineBtn")
-        logout_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        # Tell main.py to switch to Index 0 (Landing Page)
-        logout_btn.clicked.connect(self.handle_logout)
+         logout_btn = QPushButton("Logout")
+         logout_btn.setObjectName("OutlineBtn")
+         logout_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+         # Tell main.py to switch to Index 0 (Landing Page)
+         logout_btn.clicked.connect(self.handle_logout)
         
-        nav_layout.addWidget(title)
-        nav_layout.addStretch()
-        nav_layout.addWidget(refresh_btn)
-        nav_layout.addWidget(logout_btn)
+         nav_layout.addWidget(title)
+         nav_layout.addStretch()
+         nav_layout.addWidget(refresh_btn)
+         nav_layout.addWidget(logout_btn)
         
         # --- KPI ROW (Averages) ---
         kpi_layout = QHBoxLayout()

@@ -1,5 +1,6 @@
 import sys
-from PyQt6.QtWidgets import QApplication, QMainWindow, QStackedWidget
+import requests
+from PyQt6.QtWidgets import QApplication,QWidget, QMainWindow, QStackedWidget,QVBoxLayout, QHBoxLayout, QComboBox, QTableWidget, QTableWidgetItem
 from pages.landing import LandingPage
 from pages.login import LoginPage
 from pages.dashboard import DashboardPage
@@ -92,6 +93,75 @@ STYLESHEET = """
     }
 """
 
+# Dashboard
+class Dashboard(QWidget):
+    def __init__(self):
+        super().__init__()
+
+        self.table = QTableWidget()
+
+        # Dropdowns
+        self.course_filter = QComboBox()
+        self.course_filter.addItems(["All Courses", "CPE111", "CPE112", "CPE113"])
+
+        self.professor_filter = QComboBox()
+        self.professor_filter.addItems(["All Professors", "Prof. Santos", "Prof. Reyes"])
+
+        self.student_filter = QComboBox()
+        self.student_filter.addItems(["All Students", "Juan Dela Cruz", "Maria Clara"])
+
+        self.evaluation_filter = QComboBox()
+        self.evaluation_filter.addItems(["All Evaluations", "Low Scores", "High Scores", "Needs Improvement"])
+
+        # Connect filters
+        self.course_filter.currentIndexChanged.connect(self.apply_filters)
+        self.professor_filter.currentIndexChanged.connect(self.apply_filters)
+        self.student_filter.currentIndexChanged.connect(self.apply_filters)
+        self.evaluation_filter.currentIndexChanged.connect(self.apply_filters)
+
+        # Layout
+        filter_layout = QHBoxLayout()
+        filter_layout.addWidget(self.course_filter)
+        filter_layout.addWidget(self.professor_filter)
+        filter_layout.addWidget(self.student_filter)
+        filter_layout.addWidget(self.evaluation_filter)
+
+        main_layout = QVBoxLayout()
+        main_layout.addLayout(filter_layout)
+        main_layout.addWidget(self.table)
+
+        self.setLayout(main_layout)
+
+    def apply_filters(self):
+        course = self.course_filter.currentText()
+        professor = self.professor_filter.currentText()
+        student = self.student_filter.currentText()
+        evaluation = self.evaluation_filter.currentText()
+
+        response = requests.get("http://127.0.0.1:5000/get_data", params={
+            "course": course,
+            "professor": professor,
+            "student": student,
+            "evaluation": evaluation
+        })
+
+        if response.status_code == 200:
+            data = response.json()
+            self.update_table(data)
+
+    def update_table(self, data):
+        self.table.setRowCount(len(data))
+        if len(data) > 0:
+            self.table.setColumnCount(len(data[0]))
+        for row_idx, row_data in enumerate(data):
+            for col_idx, value in enumerate(row_data):
+                self.table.setItem(row_idx, col_idx, QTableWidgetItem(str(value)))
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    window = Dashboard()
+    window.show()
+    sys.exit(app.exec())
 
 class MainWindow(QMainWindow):
     def __init__(self):

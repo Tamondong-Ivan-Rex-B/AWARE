@@ -1,10 +1,54 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import mysql.connector
+import sqlite3
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 CORS(app)
+
+
+#Flask Backend
+@app.route('/get_data', methods=['GET'])
+def get_data():
+    course = request.args.get('course')
+    professor = request.args.get('professor')
+    student = request.args.get('student')
+    evaluation = request.args.get('evaluation')
+
+    query = "SELECT * FROM evaluations WHERE 1=1"
+    params = []
+
+    if course and course != "All Courses":
+        query += " AND course_code = ?"
+        params.append(course)
+
+    if professor and professor != "All Professors":
+        query += " AND professor_name = ?"
+        params.append(professor)
+
+    if student and student != "All Students":
+        query += " AND student_name = ?"
+        params.append(student)
+
+    if evaluation and evaluation != "All Evaluations":
+        if evaluation == "Low Scores":
+            query += " AND score < 70"
+        elif evaluation == "High Scores":
+            query += " AND score >= 90"
+        elif evaluation == "Needs Improvement":
+            query += " AND remarks = 'Needs Improvement'"
+
+    conn = sqlite3.connect("aware_db.sql")  # database file
+    cursor = conn.cursor()
+    cursor.execute(query, params)
+    rows = cursor.fetchall()
+    conn.close()
+
+    return jsonify(rows)
+
+if __name__ == "__main__":
+    app.run(debug=True)
 
 # --- Database Connection ---
 def get_db_connection():

@@ -94,7 +94,8 @@ class DashboardPage(QWidget):
     def fetch_live_data(self):
         """Pulls data from the Flask API and populates the UI."""
         try:
-            response = requests.get("http://127.0.0.1:5000/api/get_dashboard_data")
+            # FIX 1: Updated the port to 5001 to match server.py
+            response = requests.get("http://127.0.0.1:5001/api/get_dashboard_data")
             
             if response.status_code != 200:
                 QMessageBox.warning(self, "Server Error", "Server returned an error.")
@@ -107,11 +108,9 @@ class DashboardPage(QWidget):
             if avgs and avgs.get("avg_pacing") is not None:
                 self.val_pacing.setText(f"{float(avgs['avg_pacing']):.1f}")
                 self.val_comp.setText(f"{float(avgs['avg_comp']):.1f}")
-                #self.val_workload.setText(f"{float(avgs['avg_workload']):.1f}")
             else:
                 self.val_pacing.setText("N/A")
                 self.val_comp.setText("N/A")
-                #self.val_workload.setText("N/A")
 
             # --- Update Table ---
             evaluations = data.get("evaluations", [])
@@ -125,12 +124,17 @@ class DashboardPage(QWidget):
                 self.table.setItem(row_idx, 4, QTableWidgetItem(str(eval_data.get("Comprehension_Score", ""))))
                 self.table.setItem(row_idx, 5, QTableWidgetItem(str(eval_data.get("Engagement_Score", ""))))
                 
-                self.table.setItem(row_idx, 6, QTableWidgetItem(str(eval_data.get("Study_Hours", "")))) 
+                # FIX 2: Handle empty values gracefully so it doesn't print "None"
+                hours = eval_data.get("Study_Hours")
+                hours_str = str(hours) if hours is not None else "0"
+                self.table.setItem(row_idx, 6, QTableWidgetItem(hours_str)) 
                 
-                self.table.setItem(row_idx, 7, QTableWidgetItem(str(eval_data.get("Comments", ""))))
+                comments = eval_data.get("Comments")
+                comments_str = str(comments) if comments is not None else ""
+                self.table.setItem(row_idx, 7, QTableWidgetItem(comments_str))
                 
         except requests.exceptions.ConnectionError:
-            QMessageBox.critical(self, "Connection Error", "Cannot connect to the Flask server. Is server.py running?")
+            QMessageBox.critical(self, "Connection Error", "Cannot connect to the Flask server. Is server.py running on port 5001?")
 
     def handle_logout(self):
         """Wipes the login credentials and sends the user to the landing page."""

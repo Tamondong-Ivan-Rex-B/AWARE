@@ -391,67 +391,44 @@
                     <h3 style="margin-bottom: 16px;">Your Stats</h3>
                     <div class="stat-box" style="border-left: 4px solid var(--primary-purple);">
                         <p style="color: var(--text-gray); font-size: 13px;">Total Submissions</p>
-                        <h3>4</h3>
+                        <h3 id="statTotalSubmissions">0</h3>
                     </div>
                     <div class="stat-box" style="border-left: 4px solid #10b981;">
-                        <p style="color: var(--text-gray); font-size: 13px;">Current Streak</p>
-                        <h3>2 Weeks</h3>
+                        <p style="color: var(--text-gray); font-size: 13px;">Status</p>
+                        <h3 style="color: #10b981;">Active</h3>
                     </div>
                 </div>
 
-                <div class="card">
+                <div class="card" id="recentSubmissionsContainer">
                     <h3 style="margin-bottom: 16px;">Recent Submissions</h3>
-                    <div class="recent-item">
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                            <strong>CPE111</strong> <span style="color: var(--text-gray); font-size: 12px;">Week 4</span>
-                        </div>
-                        <div>
-                            <span class="badge">Understanding: 4/5</span>
-                            <span class="badge">Workload: 3/5</span>
-                        </div>
-                    </div>
-                    <div class="recent-item">
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                            <strong>MATH201</strong> <span style="color: var(--text-gray); font-size: 12px;">Week 4</span>
-                        </div>
-                        <div>
-                            <span class="badge">Understanding: 2/5</span>
-                            <span class="badge">Workload: 5/5</span>
-                        </div>
-                    </div>
+                    <p style="color: var(--text-gray); font-size: 14px;">Loading...</p>
                 </div>
             </div>
 
         </div>
-    </div>
 
     <script>
-
-        // Store the active ratings (defaulting to 3)
+        // Track state
         let currentStudentId = null; 
         
-        // 1. The 4 variables tracking your scores
+        // 1. Score tracking
         let clarityScore = 3;
         let pacingScore = 3;
         let comprehensionScore = 3;
         let engagementScore = 3;
 
-        // 2. The completely fixed click function
+        // 2. Rating click function
         function setRating(category, score) {
-            // 1. Update the database variables
+            // Update the variable
             if (category === 'clarity') clarityScore = score;
             if (category === 'pacing') pacingScore = score;
             if (category === 'comprehension') comprehensionScore = score;
             if (category === 'engagement') engagementScore = score;
 
-            // 2. Safely find the HTML group
             const group = document.getElementById(category + 'Group');
             
             if (group) {
-                // Find all buttons inside this specific group
                 const buttons = group.querySelectorAll('button'); 
-                
-                // Clear purple from all, then add to the clicked one
                 buttons.forEach(btn => btn.classList.remove('active'));
                 buttons.forEach(btn => {
                     if (parseInt(btn.innerText) === score) {
@@ -463,69 +440,29 @@
             }
         }
 
-        function loadStudentStats() {
-            if (data.recent_evals.length === 0) {
-                    recentContainer.innerHTML = '<p>No evaluations submitted yet.</p>';
-                } else {
-                    // CHANGED 'eval' to 'evaluation' here
-                    data.recent_evals.forEach(evaluation => { 
-                        recentContainer.innerHTML += `
-                            <div class="submission-item">
-                                <div class="sub-header">
-                                    <strong>${evaluation.Course_Code}</strong>
-                                    <span class="sub-date">${evaluation.Topic}</span>
-                                </div>
-                                <div class="sub-tags">
-                                    <span class="tag">Understanding: ${evaluation.Comprehension_Score}/5</span>
-                                    <span class="tag">Workload: ${evaluation.Engagement_Score}/5</span>
-                                </div>
-                            </div>
-                        `;
-                    });
-                }
-        }
-
-        // --- Rating Button Logic ---
-        function setRating(category, value) {
-            currentRatings[category] = value;
-            
-            // Get the specific group container
-            const group = document.getElementById(category + 'Group');
-            const buttons = group.getElementsByClassName('rating-btn');
-            
-            // Remove 'active' class from all buttons in this row
-            for(let i = 0; i < buttons.length; i++) {
-                buttons[i].classList.remove('active');
-            }
-            
-            // Add 'active' class to the clicked button (array is 0-indexed, value is 1-5)
-            buttons[value - 1].classList.add('active');
-        }
-
         // --- View Switching Logic ---
         function handleLogin() {
-            const email = document.getElementById('studentEmail').value;
+            const email = document.getElementById('studentEmail').value; // In demo, this is the username
             const password = document.getElementById('studentPassword').value;
 
             if (!email || !password) return;
 
-            // Ask the Flask server if this student exists
-            fetch('http://localhost:5000/api/student_login', {
+            // Updated to port 5001, targeting /login with exact payload server expects
+            fetch('http://localhost:5001/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: email })
+                body: JSON.stringify({ username: email, password: password, role: 'student' })
             })
             .then(response => response.json())
             .then(data => {
-                if (data.success) {
-                    currentStudentId = data.student_id; // Save the ID!
+                if (data.status === "success") {
+                    currentStudentId = data.user.id; 
                     
                     document.getElementById('login-view').classList.add('hidden');
                     document.getElementById('dashboard-view').classList.remove('hidden');
-                    document.getElementById('studentNameDisplay').innerText = data.first_name;
+                    document.getElementById('studentNameDisplay').innerText = data.user.name;
                     
-                    loadCourses(); // Load the dropdowns
-                    loadStudentStats(); // Load their personal stats!
+                    loadCourses(); 
                 } else {
                     alert("Login failed: " + data.message);
                 }
@@ -534,30 +471,27 @@
         }
 
         function handleLogout() {
-            document.getElementById('emailInput').value = '';
-            document.getElementById('passwordInput').value = '';
+            document.getElementById('studentEmail').value = '';
+            document.getElementById('studentPassword').value = '';
+            currentStudentId = null;
             
             document.getElementById('dashboard-view').classList.add('hidden');
             document.getElementById('login-view').classList.remove('hidden');
         }
 
-        // --- Submission to Backend (Flask) ---
+        // --- Submission to Backend ---
         function submitPulseCheck() {
-            // 1. Security Check: Are they logged in?
             if (!currentStudentId) {
                 alert("Security Error: Please log out and log back in.");
                 return;
             }
 
-            // 2. Validation Check: Did they select a topic?
             const sessionId = document.getElementById('topicsSelect').value;
             if (!sessionId) {
                 alert("Please select a Course and Topic before submitting!");
                 return;
             }
 
-            // (Assuming pacingScore, comprehensionScore, and workloadScore are updated by your 1-5 buttons)
-            // 3. Build the payload matching the ERD perfectly
             const evaluationData = {
                 student_id: currentStudentId,
                 session_id: sessionId,
@@ -565,62 +499,51 @@
                 pacing_score: pacingScore,
                 comprehension_score: comprehensionScore,
                 engagement_score: engagementScore,
-                study_hours: document.getElementById('studyHours') ? document.getElementById('studyHours').value || 0 : 0, // Captures the hours or defaults to 0
+                study_hours: document.getElementById('studyHours') ? document.getElementById('studyHours').value || 0 : 0,
                 comments: document.getElementById('comments') ? document.getElementById('comments').value : ""
             };
 
-            // 4. Send the data to Flask
-            fetch('http://localhost:5000/submit_evaluation', {
+            // Updated to port 5001
+            fetch('http://localhost:5001/submit_evaluation', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(evaluationData)
             })
-            .then(response => {
-                if (!response.ok) throw new Error("Server rejected the request");
-                return response.json();
-            })
+            .then(response => response.json())
             .then(data => {
-                // Tell the user it worked FIRST!
-                alert("Pulse Check Submitted Successfully!");
-                
-                // Clear the text boxes safely
-                if (document.getElementById('comments')) document.getElementById('comments').value = ""; 
-                if (document.getElementById('studyHours')) document.getElementById('studyHours').value = ""; 
-                
-                // Try to reload stats, but don't crash if the UI is missing
-                try {
-                    loadStudentStats(); 
-                } catch (e) {
-                    console.warn("Data saved, but stats failed to reload visually: ", e);
+                if(data.status === "success"){
+                    alert("Pulse Check Submitted Successfully!");
+                    if (document.getElementById('comments')) document.getElementById('comments').value = ""; 
+                    if (document.getElementById('studyHours')) document.getElementById('studyHours').value = ""; 
+                } else {
+                    alert("Error: " + data.message);
                 }
             })
             .catch(err => {
-                console.error("Real Submission Error:", err);
+                console.error("Submission Error:", err);
                 alert("Failed to submit. Check the developer console for details.");
             });
         }
 
-        // 1. Fetch courses as soon as the student logs in
+        // --- Populate Dropdowns ---
         function loadCourses() {
-            fetch('http://localhost:5000/api/get_courses')
+            fetch('http://localhost:5001/api/get_courses')
             .then(response => response.json())
             .then(data => {
                 const courseDropdown = document.getElementById('courseSelect');
-                courseDropdown.innerHTML = '<option value="">-- Choose a course --</option>'; // Clear loading text
+                courseDropdown.innerHTML = '<option value="">-- Choose a course --</option>'; 
                 
-                // Loop through database results and create <option> tags
                 data.forEach(course => {
                     courseDropdown.innerHTML += `<option value="${course.Course_Code}">${course.Course_Code} - ${course.Course_Title}</option>`;
                 });
-            });
+            })
+            .catch(err => console.error("Error loading courses:", err));
         }
 
-        // 2. Fetch topics ONLY when a specific course is clicked
         function loadTopics() {
             const selectedCourse = document.getElementById('courseSelect').value;
             const topicDropdown = document.getElementById('topicsSelect');
             
-            // If they select the blank default option, reset the topics
             if (!selectedCourse) {
                 topicDropdown.innerHTML = '<option value="">Select a course first...</option>';
                 return;
@@ -628,20 +551,55 @@
 
             topicDropdown.innerHTML = '<option value="">Loading topics...</option>';
 
-            // Send the selected course code to the Flask API
-            fetch(`http://localhost:5000/api/get_topics?course=${selectedCourse}`)
+            fetch(`http://localhost:5001/api/get_topics?course=${selectedCourse}`)
             .then(response => response.json())
             .then(data => {
                 topicDropdown.innerHTML = '<option value="">-- Select the topic --</option>';
-                
                 data.forEach(session => {
-                    // We save the Session_ID as the value so the database knows EXACTLY which class this is!
                     topicDropdown.innerHTML += `<option value="${session.Session_ID}">${session.Topic}</option>`;
                 });
-            });
+            })
+            .catch(err => console.error("Error loading topics:", err));
         }
-        
-    
+
+        function loadStudentStats() {
+            // Don't try to load if no one is logged in
+            if (!currentStudentId) return;
+
+            fetch(`http://localhost:5001/api/get_student_stats?student_id=${currentStudentId}`)
+            .then(response => response.json())
+            .then(data => {
+                // 1. Update the Total Submissions number
+                document.getElementById('statTotalSubmissions').innerText = data.total_submissions;
+
+                // 2. Update the Recent Submissions list
+                const recentContainer = document.getElementById('recentSubmissionsContainer');
+                
+                // Reset the container but keep the header
+                recentContainer.innerHTML = '<h3 style="margin-bottom: 16px;">Recent Submissions</h3>';
+
+                if (data.recent_evals.length === 0) {
+                    recentContainer.innerHTML += '<p style="color: var(--text-gray); font-size: 14px;">No evaluations submitted yet.</p>';
+                } else {
+                    // Loop through the data and create the UI cards
+                    data.recent_evals.forEach(evaluation => { 
+                        recentContainer.innerHTML += `
+                            <div class="recent-item">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                                    <strong>${evaluation.Course_Code}</strong> 
+                                    <span style="color: var(--text-gray); font-size: 12px; text-align:right;">${evaluation.Topic}</span>
+                                </div>
+                                <div>
+                                    <span class="badge">Understanding: ${evaluation.Comprehension_Score}/5</span>
+                                    <span class="badge">Engagement: ${evaluation.Engagement_Score}/5</span>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+            })
+            .catch(err => console.error("Error loading stats:", err));
+        }
     </script>
 </body>
 </html>

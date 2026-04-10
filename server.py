@@ -1,54 +1,10 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import mysql.connector
-import sqlite3
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 CORS(app)
-
-
-#Flask Backend
-@app.route('/get_data', methods=['GET'])
-def get_data():
-    course = request.args.get('course')
-    professor = request.args.get('professor')
-    student = request.args.get('student')
-    evaluation = request.args.get('evaluation')
-
-    query = "SELECT * FROM evaluations WHERE 1=1"
-    params = []
-
-    if course and course != "All Courses":
-        query += " AND course_code = ?"
-        params.append(course)
-
-    if professor and professor != "All Professors":
-        query += " AND professor_name = ?"
-        params.append(professor)
-
-    if student and student != "All Students":
-        query += " AND student_name = ?"
-        params.append(student)
-
-    if evaluation and evaluation != "All Evaluations":
-        if evaluation == "Low Scores":
-            query += " AND score < 70"
-        elif evaluation == "High Scores":
-            query += " AND score >= 90"
-        elif evaluation == "Needs Improvement":
-            query += " AND remarks = 'Needs Improvement'"
-
-    conn = sqlite3.connect("aware_db.sql")  # database file
-    cursor = conn.cursor()
-    cursor.execute(query, params)
-    rows = cursor.fetchall()
-    conn.close()
-
-    return jsonify(rows)
-
-if __name__ == "__main__":
-    app.run(debug=True)
 
 # --- Database Connection ---
 def get_db_connection():
@@ -80,7 +36,10 @@ def login():
         if role == "professor":
             cursor.execute("SELECT * FROM professor WHERE Username = %s", (username,))
             user = cursor.fetchone()
+            
+            # This IF statement is the lock!
             if user and check_password_hash(user["Password"], password):
+                # This RETURN is the key. It MUST be indented under the IF statement.
                 return jsonify({
                     "status": "success",
                     "role": "professor",
@@ -205,6 +164,7 @@ def get_dashboard_data():
         """)
         averages = cursor.fetchone()
 
+        # UPDATED SQL: Joins the Course, Professor, and Student tables to get actual names!
         cursor.execute("""
             SELECT 
                 cs.Course_Code,
@@ -214,9 +174,14 @@ def get_dashboard_data():
                 e.Comprehension_Score,
                 e.Engagement_Score,
                 e.Study_Hours,
-                e.Confusing_Point AS Comments
+                e.Confusing_Point AS Comments,
+                CONCAT(p.First_Name, ' ', p.Last_Name) AS Professor_Name,
+                CONCAT(s.First_Name, ' ', s.Last_Name) AS Student_Name
             FROM evaluation e
             JOIN class_session cs ON e.Session_ID = cs.Session_ID
+            JOIN course c ON cs.Course_Code = c.Course_Code
+            JOIN professor p ON c.Professor_ID = p.Professor_ID
+            JOIN student s ON e.Student_ID = s.Student_ID
             ORDER BY e.Evaluation_ID DESC
         """)
         evaluations = cursor.fetchall()

@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Apr 08, 2026 at 02:28 PM
+-- Generation Time: Apr 10, 2026 at 08:22 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -154,17 +154,19 @@ CREATE TABLE `professor` (
   `Professor_ID` int(11) NOT NULL,
   `First_Name` varchar(50) DEFAULT NULL,
   `Last_Name` varchar(50) DEFAULT NULL,
-  `Department` varchar(100) DEFAULT NULL
+  `Department` varchar(100) DEFAULT NULL,
+  `Username` varchar(50) DEFAULT NULL,
+  `Password` varchar(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `professor`
 --
 
-INSERT INTO `professor` (`Professor_ID`, `First_Name`, `Last_Name`, `Department`) VALUES
-(101, 'Rudo', 'Surebrec', 'Computer Engineering'),
-(102, 'Ada', 'Lovelace', 'Computer Engineering'),
-(103, 'Alan', 'Turing', 'Mathematics');
+INSERT INTO `professor` (`Professor_ID`, `First_Name`, `Last_Name`, `Department`, `Username`, `Password`) VALUES
+(101, 'Rudo', 'Surebrec', 'Computer Engineering', 'alovelace', 'password123'),
+(102, 'Ada', 'Lovelace', 'Computer Engineering', 'aturing', 'password123'),
+(103, 'Alan', 'Turing', 'Mathematics', NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -178,16 +180,18 @@ CREATE TABLE `student` (
   `First_Name` varchar(50) DEFAULT NULL,
   `Last_Name` varchar(50) DEFAULT NULL,
   `Program` varchar(50) DEFAULT NULL,
-  `Year_Level` int(11) DEFAULT NULL
+  `Year_Level` int(11) DEFAULT NULL,
+  `Username` varchar(50) DEFAULT NULL,
+  `Password` varchar(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `student`
 --
 
-INSERT INTO `student` (`Student_ID`, `Guardian_ID`, `First_Name`, `Last_Name`, `Program`, `Year_Level`) VALUES
-(2024001, 1001, 'Miguel', 'Dela Cruz', 'BSCpE', 2),
-(2024002, 1002, 'Sofia', 'Santos', 'BSCS', 2);
+INSERT INTO `student` (`Student_ID`, `Guardian_ID`, `First_Name`, `Last_Name`, `Program`, `Year_Level`, `Username`, `Password`) VALUES
+(2024001, 1001, 'Miguel', 'Dela Cruz', 'BSCpE', 2, 'mdelacruz', 'password123'),
+(2024002, 1002, 'Sofia', 'Santos', 'BSCS', 2, 'ssantos', 'password123');
 
 --
 -- Indexes for dumped tables
@@ -240,13 +244,15 @@ ALTER TABLE `guardian`
 -- Indexes for table `professor`
 --
 ALTER TABLE `professor`
-  ADD PRIMARY KEY (`Professor_ID`);
+  ADD PRIMARY KEY (`Professor_ID`),
+  ADD UNIQUE KEY `Username` (`Username`);
 
 --
 -- Indexes for table `student`
 --
 ALTER TABLE `student`
   ADD PRIMARY KEY (`Student_ID`),
+  ADD UNIQUE KEY `Username` (`Username`),
   ADD KEY `Guardian_ID` (`Guardian_ID`);
 
 --

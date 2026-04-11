@@ -10,7 +10,7 @@ from pages.dashboard import DashboardPage
 STYLESHEET = """
     QMainWindow, QWidget#Background { background-color: #f8fafc; }
     
-    QLabel { color: #0f172a; }
+    QLabel { color: #5071c1; }
     QLabel#Title { font-size: 36px; font-weight: bold; }
     QLabel#Subtitle { font-size: 16px; color: #64748b; }
     QLabel#CardTitle { font-size: 16px; font-weight: bold; }
@@ -20,11 +20,11 @@ STYLESHEET = """
         border: 1px solid #e2e8f0;
         padding: 10px;
         border-radius: 6px;
-        color: #0f172a;
+        color: #5071c1;
     }
     
     QPushButton#PrimaryBtn {
-        background-color: #0f172a;
+        background-color: #5071c1;
         color: white;
         border-radius: 6px;
         padding: 10px 20px;
@@ -35,7 +35,7 @@ STYLESHEET = """
     
     QPushButton#OutlineBtn {
         background-color: transparent;
-        color: #0f172a;
+        color: #5071c1;
         border: 1px solid #e2e8f0;
         border-radius: 6px;
         padding: 8px 16px;
@@ -45,7 +45,7 @@ STYLESHEET = """
     
     QLineEdit {
         background-color: #f8fafc;
-        color: #0f172a;
+        color: #5071c1;
         border: 1px solid #e2e8f0;
         border-radius: 6px;
         padding: 10px;
@@ -68,7 +68,7 @@ STYLESHEET = """
     /* --- DROPDOWN STYLES --- */
     QComboBox {
         background-color: white;
-        color: #0f172a;
+        color: #5071c1;
         border: 1px solid #cbd5e1;
         border-radius: 6px;
         padding: 6px 12px;
@@ -78,23 +78,23 @@ STYLESHEET = """
     QComboBox:hover { border: 1px solid #94a3b8; }
     QComboBox QAbstractItemView {
         background-color: white;
-        color: #0f172a;
+        color: #5071c1;
         selection-background-color: #f1f5f9;
-        selection-color: #0f172a;
+        selection-color: #5071c1;
         border: 1px solid #cbd5e1;
     }
 
     /* --- GLOBAL TABLE STYLES --- */
     QTableWidget { 
         background-color: white; 
-        color: #0f172a; 
+        color: #5071c1; 
         gridline-color: #e2e8f0; 
         font-size: 13px;
         border: none;
     }
     QHeaderView::section { 
         background-color: #f1f5f9; 
-        color: #0f172a; 
+        color: #5071c1; 
         font-weight: bold; 
         border: 1px solid #e2e8f0;
         padding: 4px;

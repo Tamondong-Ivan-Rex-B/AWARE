@@ -22,6 +22,10 @@ class DashboardPage(QWidget):
         title = QLabel("<b>🎓 Admin Dashboard</b><br><span style='font-size:12px; color:gray;'>A.W.A.R.E. System Live Data</span>")
         title.setFont(QFont("Segoe UI", 16))
         
+        # A label to show the current week
+        self.week_label = QLabel("Loading week...")
+        self.week_label.setObjectName("PrimaryBtn")
+        
         refresh_btn = QPushButton("↻ Refresh Data")
         refresh_btn.setObjectName("PrimaryBtn")
         refresh_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
@@ -42,7 +46,8 @@ class DashboardPage(QWidget):
         nav_layout.addStretch()
         nav_layout.addWidget(refresh_btn)
         nav_layout.addWidget(analytics_btn)
-      
+        nav_layout.addWidget(self.week_label) # Add the label to the layout
+        nav_layout.addWidget(refresh_btn)
         
         # --- 2. KPI ROW ---
         kpi_layout = QHBoxLayout()
@@ -66,6 +71,12 @@ class DashboardPage(QWidget):
         self.topic_filter.setFixedWidth(160)
         self.topic_filter.addItem("All Topics")
         
+        #The new Week Filter
+        self.week_filter = QComboBox()
+        self.week_filter.setFixedWidth(120)
+        self.week_filter.addItem("All Weeks")
+        self.week_filter.currentIndexChanged.connect(self.apply_filters)
+        
         self.score_filter = QComboBox()
         self.score_filter.addItems(["All Scores", "High Understanding (4-5)", "Low Understanding (1-2)"])
         
@@ -81,6 +92,8 @@ class DashboardPage(QWidget):
         filter_layout.addWidget(self.primary_target)
         filter_layout.addWidget(QLabel("<b>></b>"))
         filter_layout.addWidget(self.topic_filter)
+        filter_layout.addWidget(QLabel("<b>></b>"))
+        filter_layout.addWidget(self.week_filter)
         filter_layout.addWidget(QLabel("<b>></b>"))
         self.score_filter.setFixedWidth(150)
         filter_layout.addWidget(self.score_filter)
@@ -108,9 +121,9 @@ class DashboardPage(QWidget):
         table_layout = QVBoxLayout(table_container)
         
         self.table = QTableWidget()
-        self.table.setColumnCount(8) 
+        self.table.setColumnCount(9) 
         self.table.setHorizontalHeaderLabels([
-            "Course", "Topic", "Clarity", "Pacing", "Understanding", "Engagement", "Hours", "Comments"
+            "Week", "Course", "Topic", "Clarity", "Pacing", "Understanding", "Engagement", "Hours", "Comments"
         ])
         
         header = self.table.horizontalHeader()
@@ -126,6 +139,8 @@ class DashboardPage(QWidget):
         layout.addSpacing(10)
         layout.addLayout(filter_layout)
         layout.addWidget(table_container)
+        
+        self.fetch_current_week()
 
     def create_kpi(self, title, default_value, color):
         box = QFrame()
@@ -179,28 +194,43 @@ class DashboardPage(QWidget):
 
     def on_target_changed(self):
         self.topic_filter.blockSignals(True)
+        self.week_filter.blockSignals(True)
         mode = self.filter_mode.currentText()
         target = self.primary_target.currentText()
+        
         self.topic_filter.clear()
         self.topic_filter.addItem("All Topics")
+        self.week_filter.clear()
+        self.week_filter.addItem("All Weeks")
         
         unique_topics = set()
+        unique_weeks = set()
+        
         for ev in self.all_evaluations:
-            if target in ["All Courses", "All Professors"]:
-                unique_topics.add(ev.get("Topic", ""))
-            elif mode == "By Course" and ev.get("Course_Code") == target:
-                unique_topics.add(ev.get("Topic", ""))
-            elif mode == "By Professor" and ev.get("Professor_Name") == target:
+            if target in ["All Courses", "All Professors"] or \
+               (mode == "By Course" and ev.get("Course_Code") == target) or \
+               (mode == "By Professor" and ev.get("Professor_Name") == target):
+                
                 unique_topics.add(ev.get("Topic", ""))
                 
+                # Add week logic
+                week_num = ev.get("Week_Number", 0)
+                if week_num > 0:
+                    unique_weeks.add(f"Week {week_num}")
+                
         self.topic_filter.addItems(sorted(list(unique_topics)))
+        # Sort weeks numerically (so Week 10 comes after Week 2)
+        self.week_filter.addItems(sorted(list(unique_weeks), key=lambda x: int(x.replace("Week ", ""))))
+        
         self.topic_filter.blockSignals(False)
+        self.week_filter.blockSignals(False)
         self.apply_filters()
 
     def apply_filters(self):
         mode = self.filter_mode.currentText()
         target = self.primary_target.currentText()
         topic = self.topic_filter.currentText()
+        week_selection = self.week_filter.currentText()
         score_mode = self.score_filter.currentText()
         
         filtered = []
@@ -208,6 +238,11 @@ class DashboardPage(QWidget):
             if mode == "By Course" and target != "All Courses" and ev.get("Course_Code") != target: continue
             if mode == "By Professor" and target != "All Professors" and ev.get("Professor_Name") != target: continue
             if topic != "All Topics" and ev.get("Topic") != topic: continue
+            
+            # Add Week Filtering Logic
+            if week_selection != "All Weeks":
+                target_week_num = int(week_selection.replace("Week ", ""))
+                if ev.get("Week_Number") != target_week_num: continue
             
             comp = int(ev.get("Comprehension_Score", 0))
             if score_mode == "High Understanding (4-5)" and comp < 4: continue
@@ -219,15 +254,18 @@ class DashboardPage(QWidget):
     def update_table(self, data):
         self.table.setRowCount(len(data))
         for row, ev in enumerate(data):
-            self.table.setItem(row, 0, QTableWidgetItem(str(ev.get("Course_Code", ""))))
-            self.table.setItem(row, 1, QTableWidgetItem(str(ev.get("Topic", ""))))
-            self.table.setItem(row, 2, QTableWidgetItem(str(ev.get("Clarity_Score", ""))))
-            self.table.setItem(row, 3, QTableWidgetItem(str(ev.get("Pacing_Score", ""))))
-            self.table.setItem(row, 4, QTableWidgetItem(str(ev.get("Comprehension_Score", ""))))
-            self.table.setItem(row, 5, QTableWidgetItem(str(ev.get("Engagement_Score", ""))))
-            self.table.setItem(row, 6, QTableWidgetItem(str(ev.get("Study_Hours", 0))))
-            self.table.setItem(row, 7, QTableWidgetItem(str(ev.get("Comments", ""))))
-
+            # Added Week as Column 0, shifted everything else down by 1
+            week_display = f"Week {ev.get('Week_Number')}" if ev.get('Week_Number') > 0 else "N/A"
+            self.table.setItem(row, 0, QTableWidgetItem(week_display))
+            self.table.setItem(row, 1, QTableWidgetItem(str(ev.get("Course_Code", ""))))
+            self.table.setItem(row, 2, QTableWidgetItem(str(ev.get("Topic", ""))))
+            self.table.setItem(row, 3, QTableWidgetItem(str(ev.get("Clarity_Score", ""))))
+            self.table.setItem(row, 4, QTableWidgetItem(str(ev.get("Pacing_Score", ""))))
+            self.table.setItem(row, 5, QTableWidgetItem(str(ev.get("Comprehension_Score", ""))))
+            self.table.setItem(row, 6, QTableWidgetItem(str(ev.get("Engagement_Score", ""))))
+            self.table.setItem(row, 7, QTableWidgetItem(str(ev.get("Study_Hours", 0))))
+            self.table.setItem(row, 8, QTableWidgetItem(str(ev.get("Comments", ""))))
+            
     def open_analytics(self):
         """Opens the separate analytics window"""
         try:
@@ -312,3 +350,18 @@ class DashboardPage(QWidget):
 
         # Build PDF
         doc.build([table])
+    
+    def fetch_current_week(self):
+        try:
+            response = requests.get("http://127.0.0.1:5001/api/week", timeout=3)
+            if response.status_code == 200:
+                data = response.json()
+                if data["status"] in ["Not Started", "Sembreak"]:
+                    self.week_label.setText(f"Status: {data['status']}")
+                else:
+                    self.week_label.setText(f"Week {data['week_number']} ({data['status']})")
+            else:
+                self.week_label.setText("Week: Offline")
+        except Exception as e:
+            print(f"Error fetching week: {e}") # This will print the exact error to your terminal!
+            self.week_label.setText("Week: Server Error")

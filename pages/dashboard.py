@@ -42,7 +42,11 @@ class DashboardPage(QWidget):
         nav_layout.addStretch()
         nav_layout.addWidget(refresh_btn)
         nav_layout.addWidget(analytics_btn)
-        nav_layout.addWidget(logout_btn)
+        
+        #11
+
+        
+        #11
         
         # --- 2. KPI ROW ---
         kpi_layout = QHBoxLayout()
@@ -55,12 +59,15 @@ class DashboardPage(QWidget):
         filter_layout = QHBoxLayout()
         
         self.filter_mode = QComboBox()
+        self.filter_mode.setFixedWidth(140)
         self.filter_mode.addItems(["By Course", "By Professor"])
         
         self.primary_target = QComboBox()
+        self.primary_target.setFixedWidth(160)
         self.primary_target.addItem("All Courses")
         
         self.topic_filter = QComboBox()
+        self.topic_filter.setFixedWidth(160)
         self.topic_filter.addItem("All Topics")
         
         self.score_filter = QComboBox()
@@ -79,9 +86,17 @@ class DashboardPage(QWidget):
         filter_layout.addWidget(QLabel("<b>></b>"))
         filter_layout.addWidget(self.topic_filter)
         filter_layout.addWidget(QLabel("<b>></b>"))
+        self.score_filter.setFixedWidth(150)
         filter_layout.addWidget(self.score_filter)
-        filter_layout.addStretch()
+        # Save Table Button
+        save_btn = QPushButton("Save Table")
+        save_btn.setObjectName("OutlineBtn")
+        save_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        save_btn.clicked.connect(self.save_table)
 
+        filter_layout.addWidget(save_btn)
+
+        filter_layout.addStretch()
         # --- 4. TABLE VIEW ---
         table_container = QFrame()
         table_container.setObjectName("Card")
@@ -224,3 +239,88 @@ class DashboardPage(QWidget):
         self.table.setRowCount(0)
         self.main_window.login_page.clear_inputs()
         self.main_window.switch_page(0)
+
+    def save_table(self):
+        from PyQt6.QtWidgets import QMessageBox
+
+        msg = QMessageBox(self)
+        msg.setWindowTitle("Save Table")
+        msg.setText("Choose file format:")
+
+        csv_btn = msg.addButton("CSV", QMessageBox.ButtonRole.AcceptRole)
+        pdf_btn = msg.addButton("PDF", QMessageBox.ButtonRole.AcceptRole)
+        msg.addButton("Cancel", QMessageBox.ButtonRole.RejectRole)
+
+        msg.exec()
+
+        if msg.clickedButton() == csv_btn:
+            self.export_csv()
+        elif msg.clickedButton() == pdf_btn:
+            self.export_pdf()
+
+    # Export CSV Function
+    def export_csv(self):
+        import csv
+        from PyQt6.QtWidgets import QFileDialog
+
+        # Open save dialog
+        path, _ = QFileDialog.getSaveFileName(self, "Save CSV", "report.csv", "CSV Files (*.csv)")
+        if not path:
+            return
+
+        # Write table data to CSV
+        with open(path, mode='w', newline='', encoding='utf-8') as file:
+            writer = csv.writer(file)
+
+            # Get table headers
+            headers = [self.table.horizontalHeaderItem(i).text() for i in range(self.table.columnCount())]
+            writer.writerow(headers)
+
+            # Get table rows
+            for row in range(self.table.rowCount()):
+                row_data = []
+                for col in range(self.table.columnCount()):
+                    item = self.table.item(row, col)
+                    row_data.append(item.text() if item else "")
+                writer.writerow(row_data)
+
+    # Export PDF Function
+    def export_pdf(self):
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
+        from reportlab.lib import colors
+        from PyQt6.QtWidgets import QFileDialog
+
+        # Open save dialog
+        path, _ = QFileDialog.getSaveFileName(self, "Save PDF", "report.pdf", "PDF Files (*.pdf)")
+        if not path:
+            return
+
+        # Prepare document
+        doc = SimpleDocTemplate(path)
+
+        data = []
+
+        # Get table headers
+        headers = [self.table.horizontalHeaderItem(i).text() for i in range(self.table.columnCount())]
+        data.append(headers)
+
+        # Get table rows
+        for row in range(self.table.rowCount()):
+            row_data = []
+            for col in range(self.table.columnCount()):
+                item = self.table.item(row, col)
+                row_data.append(item.text() if item else "")
+            data.append(row_data)
+
+        # Create table
+        table = Table(data)
+
+        # Style the table
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.grey),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
+            ('GRID', (0,0), (-1,-1), 1, colors.black),
+        ]))
+
+        # Build PDF
+        doc.build([table])

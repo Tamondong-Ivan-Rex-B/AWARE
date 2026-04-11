@@ -8,8 +8,9 @@ from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QCursor
 
 class AnalyticsWindow(QWidget):
-    def __init__(self):
+    def __init__(self, prof_id=None):
         super().__init__()
+        self.prof_id = prof_id
 
         self.setWindowTitle("A.W.A.R.E. Analytics")
         self.resize(1000, 700)
@@ -55,6 +56,28 @@ class AnalyticsWindow(QWidget):
 
         main_layout = QVBoxLayout(self)
 
+        # --- NEW: Multi-Filter Layout ---
+        self.course_filter = QComboBox()
+        self.course_filter.addItem("All Courses")
+        self.course_filter.currentIndexChanged.connect(self.update_plots)
+
+        self.prof_filter = QComboBox()
+        self.prof_filter.addItem("All Professors")
+        self.prof_filter.currentIndexChanged.connect(self.update_plots)
+        if self.prof_id: 
+            self.prof_filter.hide() # Hide this filter entirely if logged in as Professor
+
+        self.week_filter = QComboBox()
+        self.week_filter.addItem("All Weeks")
+        self.week_filter.currentIndexChanged.connect(self.update_plots)
+
+        filter_layout = QHBoxLayout()
+        filter_layout.addWidget(QLabel("<b>Filters:</b>"))
+        filter_layout.addWidget(self.course_filter)
+        if not self.prof_id:
+            filter_layout.addWidget(self.prof_filter) # Only Admin gets to see this
+        filter_layout.addWidget(self.week_filter)
+
         # --- TOP NAVIGATION ---
         top_layout = QHBoxLayout()
         title = QLabel("📊 Advanced Diagnostics")
@@ -81,8 +104,7 @@ class AnalyticsWindow(QWidget):
 
         top_layout.addWidget(title)
         top_layout.addStretch()
-        top_layout.addWidget(QLabel("<b>Filter:</b>"))
-        top_layout.addWidget(self.course_filter)
+        top_layout.addLayout(filter_layout)
         top_layout.addWidget(help_btn)
         top_layout.addWidget(back_btn)
 
@@ -231,27 +253,49 @@ class AnalyticsWindow(QWidget):
         msg.exec()
 
     def fetch_data(self):
-        """Fetches data from the API and populates the filter dropdown."""
+        """Fetches data from the API and populates the filter dropdowns."""
         try:
-            res = requests.get("http://127.0.0.1:5001/api/get_dashboard_data", timeout=5)
+            params = {'prof_id': self.prof_id} if self.prof_id else {}
+            res = requests.get("http://127.0.0.1:5001/api/get_dashboard_data", params=params, timeout=5)
             if res.status_code == 200:
                 self.all_evaluations = res.json().get("evaluations", [])
                 
-                # Update Course Filter options
-                current_selection = self.course_filter.currentText()
-                unique_courses = set([e.get("Course_Code") for e in self.all_evaluations if e.get("Course_Code")])
+                # Capture current selections to prevent resetting while viewing
+                curr_course = self.course_filter.currentText()
+                curr_prof = self.prof_filter.currentText()
+                curr_week = self.week_filter.currentText()
                 
+                # Find all unique items
+                unique_courses = set([e.get("Course_Code") for e in self.all_evaluations if e.get("Course_Code")])
+                unique_profs = set([e.get("Professor_Name") for e in self.all_evaluations if e.get("Professor_Name")])
+                unique_weeks = set([f"Week {e.get('Week_Number')}" for e in self.all_evaluations if e.get("Week_Number", 0) > 0])
+                
+                # Populate Course Filter
                 self.course_filter.blockSignals(True)
                 self.course_filter.clear()
                 self.course_filter.addItem("All Courses")
                 self.course_filter.addItems(sorted(list(unique_courses)))
-                
-                # Restore previous selection if it still exists
-                idx = self.course_filter.findText(current_selection)
-                if idx >= 0: self.course_filter.setCurrentIndex(idx)
+                if self.course_filter.findText(curr_course) >= 0: self.course_filter.setCurrentText(curr_course)
                 self.course_filter.blockSignals(False)
 
-            res_grades = requests.get("http://127.0.0.1:5001/api/analytics/grades_vs_evals", timeout=5)
+                # Populate Professor Filter
+                self.prof_filter.blockSignals(True)
+                self.prof_filter.clear()
+                self.prof_filter.addItem("All Professors")
+                self.prof_filter.addItems(sorted(list(unique_profs)))
+                if self.prof_filter.findText(curr_prof) >= 0: self.prof_filter.setCurrentText(curr_prof)
+                self.prof_filter.blockSignals(False)
+
+                # Populate Week Filter (Sorted Numerically)
+                self.week_filter.blockSignals(True)
+                self.week_filter.clear()
+                self.week_filter.addItem("All Weeks")
+                sorted_weeks = sorted(list(unique_weeks), key=lambda x: int(x.replace("Week ", "")))
+                self.week_filter.addItems(sorted_weeks)
+                if self.week_filter.findText(curr_week) >= 0: self.week_filter.setCurrentText(curr_week)
+                self.week_filter.blockSignals(False)
+
+            res_grades = requests.get("http://127.0.0.1:5001/api/analytics/grades_vs_evals", params=params, timeout=5)
             if res_grades.status_code == 200:
                 self.all_grade_data = res_grades.json().get("data", [])
 
@@ -263,14 +307,36 @@ class AnalyticsWindow(QWidget):
     def update_plots(self):
         """Filters the data and redraws all 6 graphs."""
         selected_course = self.course_filter.currentText()
+        selected_prof = self.prof_filter.currentText()
+        selected_week = self.week_filter.currentText()
         
-        # Apply Filters
-        filtered_evals = self.all_evaluations
-        filtered_grades = self.all_grade_data
-        
-        if selected_course != "All Courses":
-            filtered_evals = [e for e in self.all_evaluations if e.get("Course_Code") == selected_course]
-            filtered_grades = [g for g in self.all_grade_data if g.get("Course_Code") == selected_course]
+        # 1. Filter the Evaluations (Used for Tabs 2, 3, 4, 5, 6)
+        filtered_evals = []
+        for e in self.all_evaluations:
+            if selected_course != "All Courses" and e.get("Course_Code") != selected_course:
+                continue
+            if not self.prof_id and selected_prof != "All Professors" and e.get("Professor_Name") != selected_prof:
+                continue
+            if selected_week != "All Weeks":
+                target_week_num = int(selected_week.replace("Week ", ""))
+                if e.get("Week_Number") != target_week_num:
+                    continue
+            filtered_evals.append(e)
+
+        # 2. Filter the Grades (Used for Tab 1: Outcomes)
+        # We find out which courses the selected professor teaches, and only show grades for those courses.
+        allowed_courses_for_prof = set()
+        if selected_prof != "All Professors":
+            allowed_courses_for_prof = set([e.get("Course_Code") for e in self.all_evaluations if e.get("Professor_Name") == selected_prof])
+
+        filtered_grades = []
+        for g in self.all_grade_data:
+            c = g.get("Course_Code")
+            if selected_course != "All Courses" and c != selected_course:
+                continue
+            if selected_prof != "All Professors" and c not in allowed_courses_for_prof:
+                continue
+            filtered_grades.append(g)
 
         # ---------------------------------------------------------
         # 1. OUTCOMES (Scatter: Grades vs Comprehension)

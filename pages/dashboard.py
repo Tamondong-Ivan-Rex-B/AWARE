@@ -17,10 +17,11 @@ class DashboardPage(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 20, 20, 20)
         
-        # --- 1. Navbar (Integrated with Analytics Button) ---
+        # --- 1. Navbar ---
         nav_layout = QHBoxLayout()
-        title = QLabel("<b>🎓 Admin Dashboard</b><br><span style='font-size:12px; color:gray;'>A.W.A.R.E. System Live Data</span>")
-        title.setFont(QFont("Segoe UI", 16))
+        # Changed 'title' to 'self.title'
+        self.title = QLabel("<b>🎓 Admin Dashboard</b><br><span style='font-size:12px; color:gray;'>A.W.A.R.E. System Live Data</span>")
+        self.title.setFont(QFont("Segoe UI", 16))
         
         # A label to show the current week
         self.week_label = QLabel("Loading week...")
@@ -49,12 +50,12 @@ class DashboardPage(QWidget):
         logout_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         logout_btn.clicked.connect(self.handle_logout)
         
-        nav_layout.addWidget(title)
+        nav_layout.addWidget(self.title)
         nav_layout.addStretch()
         nav_layout.addWidget(refresh_btn)
         nav_layout.addWidget(analytics_btn)
-        nav_layout.addWidget(self.week_label) # Add the label to the layout
-        nav_layout.addWidget(refresh_btn)
+        nav_layout.addWidget(self.week_label)
+        nav_layout.addWidget(logout_btn)
         
         # --- 2. KPI ROW ---
         kpi_layout = QHBoxLayout()
@@ -166,6 +167,10 @@ class DashboardPage(QWidget):
     def fetch_live_data(self):
         """Pulls data from the Flask API on port 5001"""
         try:
+            params = {}
+            if hasattr(self, 'current_user') and self.current_user.get("role") == "professor":
+                params['prof_id'] = self.current_user['user']['id']
+                
             response = requests.get("http://127.0.0.1:5001/api/get_dashboard_data")
             if response.status_code != 200:
                 QMessageBox.warning(self, "Server Error", "Server returned an error.")
@@ -177,6 +182,11 @@ class DashboardPage(QWidget):
             self.val_comp.setText(f"{float(avgs.get('avg_comp', 0)):.1f}")
 
             self.all_evaluations = data.get("evaluations", [])
+            
+            if hasattr(self, 'current_user') and self.current_user.get("role") == "professor":
+                prof_name = self.current_user['user']['name']
+                self.all_evaluations = [e for e in self.all_evaluations if e.get("Professor_Name") == prof_name]
+            
             self.on_mode_changed() 
                 
         except Exception as e:
@@ -278,7 +288,12 @@ class DashboardPage(QWidget):
         try:
             # FIX: Added 'pages.' to the import path
             from pages.analytics import AnalyticsWindow 
-            self.analytics_window = AnalyticsWindow()
+            prof_id = None
+            
+            if hasattr(self, 'current_user') and self.current_user.get("role") == "professor":
+                prof_id = self.current_user['user']['id']
+                
+            self.analytics_window = AnalyticsWindow(prof_id=prof_id)
             self.analytics_window.show()
         except ImportError:
             QMessageBox.critical(self, "File Error", "Could not find pages/analytics.py. Please check your folder structure.")
@@ -372,3 +387,21 @@ class DashboardPage(QWidget):
         except Exception as e:
             print(f"Error fetching week: {e}") # This will print the exact error to your terminal!
             self.week_label.setText("Week: Server Error")
+            
+    def update_user_info(self, data):
+        """Called automatically by main.py when a user logs in."""
+        self.current_user = data
+        role = data.get("role", "admin")
+        user_info = data.get("user", {})
+        
+        if role == "professor":
+            self.title.setText(f"<b>🎓 Professor Dashboard</b><br><span style='font-size:12px; color:gray;'>Welcome, Prof. {user_info.get('name', '')}</span>")
+            # Hide the "By Professor" filter because they can only see themselves!
+            self.filter_mode.clear()
+            self.filter_mode.addItems(["By Course"])
+        else:
+            self.title.setText("<b>🎓 Admin Dashboard</b><br><span style='font-size:12px; color:gray;'>A.W.A.R.E. System Live Data</span>")
+            self.filter_mode.clear()
+            self.filter_mode.addItems(["By Course", "By Professor"])
+            
+        self.fetch_live_data()

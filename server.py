@@ -30,7 +30,7 @@ def login():
     data = request.json
     username = data.get("username", "").strip()
     password = data.get("password", "").strip()
-    role = data.get("role", "student")
+    role = data.get("role", "professor") # Default to professor
 
     if not username or not password:
         return jsonify({"status": "error", "message": "Username and password are required."}), 400
@@ -41,13 +41,29 @@ def login():
 
     cursor = db.cursor(dictionary=True)
     try:
-        if role == "professor":
-            cursor.execute("SELECT * FROM professor WHERE Username = %s", (username,))
+        # NEW: Hardcoded Admin bypass for the prototype
+        # NEW: Database-driven Admin Login
+        if role == "admin":
+            cursor.execute("SELECT * FROM admin WHERE Username = %s", (username,))
             user = cursor.fetchone()
             
-            # This IF statement is the lock!
             if user and check_password_hash(user["Password"], password):
-                # This RETURN is the key. It MUST be indented under the IF statement.
+                return jsonify({
+                    "status": "success", 
+                    "role": "admin", 
+                    "user": {
+                        "id": user["Admin_ID"], 
+                        "name": f"{user['First_Name']} {user['Last_Name']}", 
+                        "username": user["Username"]
+                    }
+                }), 200
+            else:
+                return jsonify({"status": "error", "message": "Invalid admin credentials."}), 401
+
+        elif role == "professor":
+            cursor.execute("SELECT * FROM professor WHERE Username = %s", (username,))
+            user = cursor.fetchone()
+            if user and check_password_hash(user["Password"], password):
                 return jsonify({
                     "status": "success",
                     "role": "professor",
@@ -55,9 +71,9 @@ def login():
                         "id": user["Professor_ID"],
                         "name": f"{user['First_Name']} {user['Last_Name']}",
                         "username": user["Username"],
-                        "department": user["Department"],
                     }
                 }), 200
+
         else:  # default: student
             cursor.execute("SELECT * FROM student WHERE Username = %s", (username,))
             user = cursor.fetchone()
@@ -164,22 +180,31 @@ def submit_evaluation():
 # --- Dashboard Data Route (For Admin/Professor PyQt App) ---
 @app.route("/api/get_dashboard_data", methods=["GET"])
 def get_dashboard_data():
+    prof_id = request.args.get('prof_id') # NEW: Capture the ID
+    
     db = get_db_connection()
     if not db:
         return jsonify({"status": "error", "message": "Database connection failed."}), 500
 
     cursor = db.cursor(dictionary=True)
     try:
-        cursor.execute("""
+        # Setup dynamic SQL filtering
+        where_clause = "WHERE cs.Professor_ID = %s" if prof_id else ""
+        params = (prof_id,) if prof_id else ()
+
+        # UPDATED: Added JOIN and WHERE clause to averages
+        cursor.execute(f"""
             SELECT 
-                AVG(Pacing_Score)        AS avg_pacing,
-                AVG(Comprehension_Score) AS avg_comp
-            FROM evaluation
-        """)
+                AVG(e.Pacing_Score) AS avg_pacing,
+                AVG(e.Comprehension_Score) AS avg_comp
+            FROM evaluation e
+            JOIN class_session cs ON e.Session_ID = cs.Session_ID
+            {where_clause}
+        """, params)
         averages = cursor.fetchone()
 
-        # UPDATED SQL: Changed e.Confusing_Point to e.Additional_Comments
-        cursor.execute("""
+        # UPDATED: Added {where_clause} and params to the main query
+        cursor.execute(f"""
             SELECT 
                 cs.Course_Code,
                 cs.Topic,
@@ -195,10 +220,11 @@ def get_dashboard_data():
             FROM evaluation e
             JOIN class_session cs ON e.Session_ID = cs.Session_ID
             JOIN course c ON cs.Course_Code = c.Course_Code
-            JOIN professor p ON cs.Professor_ID = p.Professor_ID
+            JOIN professor p ON cs.Professor_ID = p.Professor_ID 
             JOIN student s ON e.Student_ID = s.Student_ID
+            {where_clause}
             ORDER BY e.Evaluation_ID DESC
-        """)
+        """, params)
         evaluations = cursor.fetchall()
 
         # NEW LOGIC: Calculate the week for every single evaluation
@@ -314,14 +340,18 @@ def get_week():
 
 @app.route("/api/analytics/grades_vs_evals", methods=["GET"])
 def get_grades_vs_evals():
+    prof_id = request.args.get('prof_id') # NEW: Capture the ID
+    
     db = get_db_connection()
     if not db:
         return jsonify({"status": "error", "message": "Database connection failed."}), 500
 
     cursor = db.cursor(dictionary=True)
     try:
-        # This matches the student's evaluations to their actual enrolled grade
-        cursor.execute("""
+        where_clause = "WHERE cs.Professor_ID = %s" if prof_id else ""
+        params = (prof_id,) if prof_id else ()
+
+        cursor.execute(f"""
             SELECT 
                 CONCAT(s.First_Name, ' ', s.Last_Name) AS Student_Name,
                 en.Course_Code,
@@ -332,8 +362,9 @@ def get_grades_vs_evals():
             JOIN student s ON en.Student_ID = s.Student_ID
             JOIN class_session cs ON en.Course_Code = cs.Course_Code
             JOIN evaluation ev ON cs.Session_ID = ev.Session_ID AND en.Student_ID = ev.Student_ID
+            {where_clause}
             GROUP BY en.Student_ID, en.Course_Code, en.Current_Grade
-        """)
+        """, params)
         data = cursor.fetchall()
         return jsonify({"status": "success", "data": data}), 200
     except Exception as e:

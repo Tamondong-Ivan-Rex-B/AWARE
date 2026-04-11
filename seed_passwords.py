@@ -72,6 +72,29 @@ def seed():
             )
             print(f"  [✓] Secured password for Professor: {username}")
 
+    # --- 3. SCAN ADMINS ---
+    print("\nScanning admin accounts...")
+    cursor.execute("SELECT Admin_ID, Username, Password FROM admin")
+    admins = cursor.fetchall()
+
+    for admin in admins:
+        a_id = admin['Admin_ID']
+        username = admin['Username']
+        current_pass = admin['Password']
+
+        if current_pass is None or current_pass == "":
+            print(f"  [!] Skipped Admin {username} (No password set)")
+        elif current_pass.startswith(('scrypt:', 'pbkdf2:')):
+            pass # Already secured
+        else:
+            # It's plain text! Hash it.
+            hashed = generate_password_hash(current_pass)
+            update_cursor.execute(
+                "UPDATE admin SET Password = %s WHERE Admin_ID = %s",
+                (hashed, a_id)
+            )
+            print(f"  [✓] Secured password for Admin: {username}")
+
     # Save changes and close connections
     conn.commit()
     cursor.close()

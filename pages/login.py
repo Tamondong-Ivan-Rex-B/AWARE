@@ -1,7 +1,7 @@
 import requests
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QPushButton,
-    QLineEdit, QFrame, QMessageBox
+    QLineEdit, QFrame, QMessageBox, QComboBox
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont, QCursor
@@ -36,8 +36,14 @@ class LoginPage(QWidget):
         card_layout.setContentsMargins(30, 30, 30, 30)
         card_layout.setSpacing(12)
 
-        card_title = QLabel("Professor Sign In")
+        card_title = QLabel("System Sign In")
         card_title.setObjectName("CardTitle")
+
+        # NEW: Role Dropdown
+        role_label = QLabel("Login As")
+        self.role_input = QComboBox()
+        self.role_input.addItems(["Professor", "Admin"])
+        self.role_input.setStyleSheet("padding: 8px; border: 1px solid #e2e8f0; border-radius: 6px; background: #f8fafc;")
 
         # Username Input
         username_label = QLabel("Username")
@@ -61,13 +67,16 @@ class LoginPage(QWidget):
 
         # Demo credentials hint
         self.demo_text = QLabel(
-            "<b>Demo (Professor):</b> rsuberec / prof123<br>"
+            "<b>Demo (Admin):</b> admin / admin123<br>"
+            "<b>Demo (Admin):</b> rsuberec / prof123<br>"
             "<b>Demo (Professor):</b> refer to database / prof123"
         )
         self.demo_text.setObjectName("DemoBox")
         self.demo_text.setTextFormat(Qt.TextFormat.RichText)
 
         card_layout.addWidget(card_title)
+        card_layout.addWidget(role_label)
+        card_layout.addWidget(self.role_input)
         card_layout.addWidget(username_label)
         card_layout.addWidget(self.username_input)
         card_layout.addWidget(password_label)
@@ -95,8 +104,7 @@ class LoginPage(QWidget):
         username = self.username_input.text().strip()
         password = self.pass_input.text().strip()
         
-        # HARDCODED ROLE: Desktop app is now strictly for Professors
-        role = "professor"
+        role = self.role_input.currentText().lower()
 
         if not username or not password:
             QMessageBox.warning(self, "Input Error", "Please enter both username and password.")

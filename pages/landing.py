@@ -25,9 +25,14 @@ class LandingPage(QWidget):
         # Tell main.py to switch to Index 1 (Login Page)
         login_btn.clicked.connect(lambda: self.main_window.switch_page(1)) 
         
+        exit_btn = QPushButton("Exit")
+        exit_btn.setObjectName("OutlineBtn")
+        exit_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        exit_btn.clicked.connect(self.main_window.close) # Closes the application
+        
         nav_layout.addWidget(logo)
         nav_layout.addStretch()
-        nav_layout.addWidget(login_btn)
+        nav_layout.addWidget(exit_btn) # Add the Exit button to the layout
         
         # --- Hero Section ---
         hero_widget = QWidget()

@@ -1,13 +1,11 @@
 """
 seed_passwords.py
 -----------------
-Run this ONCE after importing aware_db.sql to replace the placeholder
-passwords with properly hashed values.
+Run this script whenever you manually add new students or professors 
+in phpMyAdmin using plain-text passwords. 
 
-Usage:
-    python seed_passwords.py
-
-Requirements: pip install mysql-connector-python werkzeug
+This script will automatically scan the database, find any unprotected 
+passwords, hash them securely, and save them back.
 """
 
 import mysql.connector
@@ -20,45 +18,66 @@ DB_CONFIG = {
     "database": "aware_db",
 }
 
-STUDENT_CREDENTIALS = [
-    (2024001, "student123"),
-    (2024002, "student123"),
-]
-
-PROFESSOR_CREDENTIALS = [
-    (101, "prof123"),
-    (102, "prof123"),
-    (103, "prof123"),
-]
-
-
 def seed():
+    # Connect to database
     conn = mysql.connector.connect(**DB_CONFIG)
-    cursor = conn.cursor()
+    # Using dictionary=True makes it easier to read column names
+    cursor = conn.cursor(dictionary=True) 
+    update_cursor = conn.cursor() # Separate cursor for making changes
 
-    print("Seeding student passwords...")
-    for student_id, plain_password in STUDENT_CREDENTIALS:
-        hashed = generate_password_hash(plain_password)
-        cursor.execute(
-            "UPDATE student SET Password = %s WHERE Student_ID = %s",
-            (hashed, student_id),
-        )
-        print(f"  Student {student_id} updated.")
+    # --- 1. SCAN STUDENTS ---
+    print("Scanning student accounts...")
+    cursor.execute("SELECT Student_ID, Username, Password FROM student")
+    students = cursor.fetchall()
 
-    print("Seeding professor passwords...")
-    for professor_id, plain_password in PROFESSOR_CREDENTIALS:
-        hashed = generate_password_hash(plain_password)
-        cursor.execute(
-            "UPDATE professor SET Password = %s WHERE Professor_ID = %s",
-            (hashed, professor_id),
-        )
-        print(f"  Professor {professor_id} updated.")
+    for student in students:
+        s_id = student['Student_ID']
+        username = student['Username']
+        current_pass = student['Password']
 
+        # Check if the password is empty, NULL, or already properly hashed
+        if current_pass is None or current_pass == "":
+            print(f"  [!] Skipped Student {username} (No password set)")
+        elif current_pass.startswith(('scrypt:', 'pbkdf2:')):
+            pass # Already secured, do nothing quietly
+        else:
+            # It's plain text! Hash it and update the database.
+            hashed = generate_password_hash(current_pass)
+            update_cursor.execute(
+                "UPDATE student SET Password = %s WHERE Student_ID = %s",
+                (hashed, s_id)
+            )
+            print(f"  [✓] Secured password for Student: {username}")
+
+    # --- 2. SCAN PROFESSORS ---
+    print("\nScanning professor accounts...")
+    cursor.execute("SELECT Professor_ID, Username, Password FROM professor")
+    professors = cursor.fetchall()
+
+    for prof in professors:
+        p_id = prof['Professor_ID']
+        username = prof['Username']
+        current_pass = prof['Password']
+
+        if current_pass is None or current_pass == "":
+            print(f"  [!] Skipped Professor {username} (No password set)")
+        elif current_pass.startswith(('scrypt:', 'pbkdf2:')):
+            pass # Already secured
+        else:
+            # It's plain text! Hash it.
+            hashed = generate_password_hash(current_pass)
+            update_cursor.execute(
+                "UPDATE professor SET Password = %s WHERE Professor_ID = %s",
+                (hashed, p_id)
+            )
+            print(f"  [✓] Secured password for Professor: {username}")
+
+    # Save changes and close connections
     conn.commit()
     cursor.close()
+    update_cursor.close()
     conn.close()
-    print("\nAll passwords seeded successfully!")
-
+    print("\nDatabase scan complete! All passwords are now secure.")
 
 if __name__ == "__main__":
     seed()

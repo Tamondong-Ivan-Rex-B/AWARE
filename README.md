@@ -28,7 +28,7 @@
 Ensure you have Python 3.x and MySQL installed on your machine.
 Clone the repository and navigate to the project folder:
     
-    git clone https://github.com/yourusername/AWARE-System.git
+    git clone https://github.com/Tamondong-Ivan-Rex-B/AWARE-System.git
     cd AWARE-System
 
 ### 2. Install Dependencies

@@ -10,8 +10,9 @@ CORS(app)
 
 # --- GLOBAL TIME MACHINE FOR TESTING ---
 # Change this date to test different weeks. 
-# Set to None when you want to use Real Time: GLOBAL_TEST_DATE = None
-GLOBAL_TEST_DATE = datetime(2026, 3, 26)
+# Set to None when you want to use Real Time:
+GLOBAL_TEST_DATE = None
+#GLOBAL_TEST_DATE = datetime(2026, 3, 26)
 
 # --- Database Connection ---
 def get_db_connection():
@@ -194,7 +195,7 @@ def get_dashboard_data():
             FROM evaluation e
             JOIN class_session cs ON e.Session_ID = cs.Session_ID
             JOIN course c ON cs.Course_Code = c.Course_Code
-            JOIN professor p ON c.Professor_ID = p.Professor_ID
+            JOIN professor p ON cs.Professor_ID = p.Professor_ID
             JOIN student s ON e.Student_ID = s.Student_ID
             ORDER BY e.Evaluation_ID DESC
         """)
@@ -310,6 +311,36 @@ def get_week():
 
     result = calculate_week(target_date)
     return jsonify(result)
+
+@app.route("/api/analytics/grades_vs_evals", methods=["GET"])
+def get_grades_vs_evals():
+    db = get_db_connection()
+    if not db:
+        return jsonify({"status": "error", "message": "Database connection failed."}), 500
+
+    cursor = db.cursor(dictionary=True)
+    try:
+        # This matches the student's evaluations to their actual enrolled grade
+        cursor.execute("""
+            SELECT 
+                CONCAT(s.First_Name, ' ', s.Last_Name) AS Student_Name,
+                en.Course_Code,
+                en.Current_Grade,
+                AVG(ev.Comprehension_Score) AS Avg_Comprehension,
+                SUM(ev.Study_Hours) AS Total_Study_Hours
+            FROM enrollment en
+            JOIN student s ON en.Student_ID = s.Student_ID
+            JOIN class_session cs ON en.Course_Code = cs.Course_Code
+            JOIN evaluation ev ON cs.Session_ID = ev.Session_ID AND en.Student_ID = ev.Student_ID
+            GROUP BY en.Student_ID, en.Course_Code, en.Current_Grade
+        """)
+        data = cursor.fetchall()
+        return jsonify({"status": "success", "data": data}), 200
+    except Exception as e:
+        print(f"Analytics Data Error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        db.close()
 
 if __name__ == "__main__":
     app.run(debug=True, port=5001)

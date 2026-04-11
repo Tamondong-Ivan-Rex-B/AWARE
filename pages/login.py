@@ -61,8 +61,8 @@ class LoginPage(QWidget):
 
         # Demo credentials hint
         self.demo_text = QLabel(
-            "<b>Demo (Professor):</b> prof_rudo / prof123<br>"
-            "<b>Demo (Professor):</b> prof_ada / prof123"
+            "<b>Demo (Professor):</b> rsuberec / prof123<br>"
+            "<b>Demo (Professor):</b> refer to database / prof123"
         )
         self.demo_text.setObjectName("DemoBox")
         self.demo_text.setTextFormat(Qt.TextFormat.RichText)

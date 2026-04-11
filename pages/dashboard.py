@@ -24,7 +24,14 @@ class DashboardPage(QWidget):
         
         # A label to show the current week
         self.week_label = QLabel("Loading week...")
-        self.week_label.setObjectName("PrimaryBtn")
+        self.week_label.setStyleSheet("""
+            background-color: #6d28d9; 
+            color: white; 
+            padding: 8px 16px; 
+            border-radius: 6px; 
+            font-weight: bold; 
+            font-size: 14px;
+        """)
         
         refresh_btn = QPushButton("↻ Refresh Data")
         refresh_btn.setObjectName("PrimaryBtn")

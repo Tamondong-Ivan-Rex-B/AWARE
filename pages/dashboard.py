@@ -1,7 +1,7 @@
 import requests
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox,
                              QPushButton, QFrame, QTableWidget, QTableWidgetItem, 
-                             QHeaderView, QMessageBox)
+                             QHeaderView, QMessageBox, QMenu)
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont, QCursor
 
@@ -42,11 +42,7 @@ class DashboardPage(QWidget):
         nav_layout.addStretch()
         nav_layout.addWidget(refresh_btn)
         nav_layout.addWidget(analytics_btn)
-        
-        #11
-
-        
-        #11
+      
         
         # --- 2. KPI ROW ---
         kpi_layout = QHBoxLayout()
@@ -88,14 +84,23 @@ class DashboardPage(QWidget):
         filter_layout.addWidget(QLabel("<b>></b>"))
         self.score_filter.setFixedWidth(150)
         filter_layout.addWidget(self.score_filter)
-        # Save Table Button
+
+        # Save Table Button with dropdown menu
         save_btn = QPushButton("Save Table")
         save_btn.setObjectName("OutlineBtn")
         save_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        save_btn.clicked.connect(self.save_table)
+
+        menu = QMenu()
+
+        csv_action = menu.addAction("Save as CSV")
+        pdf_action = menu.addAction("Save as PDF")
+
+        csv_action.triggered.connect(self.export_csv)
+        pdf_action.triggered.connect(self.export_pdf)
+
+        save_btn.setMenu(menu)
 
         filter_layout.addWidget(save_btn)
-
         filter_layout.addStretch()
         # --- 4. TABLE VIEW ---
         table_container = QFrame()
@@ -240,24 +245,7 @@ class DashboardPage(QWidget):
         self.main_window.login_page.clear_inputs()
         self.main_window.switch_page(0)
 
-    def save_table(self):
-        from PyQt6.QtWidgets import QMessageBox
-
-        msg = QMessageBox(self)
-        msg.setWindowTitle("Save Table")
-        msg.setText("Choose file format:")
-
-        csv_btn = msg.addButton("CSV", QMessageBox.ButtonRole.AcceptRole)
-        pdf_btn = msg.addButton("PDF", QMessageBox.ButtonRole.AcceptRole)
-        msg.addButton("Cancel", QMessageBox.ButtonRole.RejectRole)
-
-        msg.exec()
-
-        if msg.clickedButton() == csv_btn:
-            self.export_csv()
-        elif msg.clickedButton() == pdf_btn:
-            self.export_pdf()
-
+    
     # Export CSV Function
     def export_csv(self):
         import csv

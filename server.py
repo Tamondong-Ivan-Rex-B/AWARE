@@ -41,7 +41,6 @@ def login():
 
     cursor = db.cursor(dictionary=True)
     try:
-        # NEW: Hardcoded Admin bypass for the prototype
         # NEW: Database-driven Admin Login
         if role == "admin":
             cursor.execute("SELECT * FROM admin WHERE Username = %s", (username,))
@@ -369,6 +368,72 @@ def get_grades_vs_evals():
         return jsonify({"status": "success", "data": data}), 200
     except Exception as e:
         print(f"Analytics Data Error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        db.close()
+        
+# ==========================================
+# ADMIN CRUD: PROFESSORS
+# ==========================================
+
+@app.route('/api/admin/professors', methods=['GET', 'POST'])
+def api_professors():
+    db = get_db_connection()
+    cursor = db.cursor(dictionary=True)
+    
+    try:
+        if request.method == 'GET':
+            cursor.execute("SELECT Professor_ID, First_Name, Last_Name, Username FROM professor ORDER BY Last_Name")
+            return jsonify({"status": "success", "data": cursor.fetchall()}), 200
+            
+        elif request.method == 'POST':
+            data = request.json
+            hashed_pw = generate_password_hash(data['Password'])
+            
+            cursor.execute("""
+                INSERT INTO professor (First_Name, Last_Name, Username, Password) 
+                VALUES (%s, %s, %s, %s)
+            """, (data['First_Name'], data['Last_Name'], data['Username'], hashed_pw))
+            db.commit()
+            return jsonify({"status": "success", "message": "Professor added!"}), 201
+
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        db.close()
+
+@app.route('/api/admin/professors/<int:prof_id>', methods=['PUT', 'DELETE'])
+def api_modify_professor(prof_id):
+    db = get_db_connection()
+    cursor = db.cursor()
+    
+    try:
+        if request.method == 'DELETE':
+            # Note: If they are assigned to a class_session, this might fail unless you handle the Foreign Key!
+            cursor.execute("DELETE FROM professor WHERE Professor_ID = %s", (prof_id,))
+            db.commit()
+            return jsonify({"status": "success", "message": "Professor deleted!"}), 200
+            
+        elif request.method == 'PUT':
+            data = request.json
+            
+            # If they typed a new password, hash and update it. Otherwise, leave it alone.
+            if data.get('Password') and data['Password'].strip() != "":
+                hashed_pw = generate_password_hash(data['Password'])
+                cursor.execute("""
+                    UPDATE professor SET First_Name=%s, Last_Name=%s, Username=%s, Password=%s 
+                    WHERE Professor_ID=%s
+                """, (data['First_Name'], data['Last_Name'], data['Username'], hashed_pw, prof_id))
+            else:
+                cursor.execute("""
+                    UPDATE professor SET First_Name=%s, Last_Name=%s, Username=%s 
+                    WHERE Professor_ID=%s
+                """, (data['First_Name'], data['Last_Name'], data['Username'], prof_id))
+                
+            db.commit()
+            return jsonify({"status": "success", "message": "Professor updated!"}), 200
+
+    except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
     finally:
         db.close()

@@ -34,27 +34,44 @@ class DashboardPage(QWidget):
             font-size: 14px;
         """)
         
+        standard_btn_style = """
+            QPushButton { background-color: white; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 12px; font-weight: bold; }
+            QPushButton:hover { background-color: #f8fafc; border: 1px solid #94a3b8; }
+        """
+        
+        red_btn_style = """
+            QPushButton { background-color: white; color: #EF4444; border: 1px solid #FCA5A5; border-radius: 6px; padding: 6px 12px; font-weight: bold; }
+            QPushButton:hover { background-color: #FEF2F2; border: 1px solid #EF4444; }
+        """
+        
         refresh_btn = QPushButton("↻ Refresh Data")
-        refresh_btn.setObjectName("PrimaryBtn")
+        refresh_btn.setStyleSheet(standard_btn_style)
         refresh_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         refresh_btn.clicked.connect(self.fetch_live_data)
         
         # NEW: Analytics Button
         analytics_btn = QPushButton("📊 Analytics")
-        analytics_btn.setObjectName("OutlineBtn")
+        analytics_btn.setStyleSheet(standard_btn_style)
         analytics_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         analytics_btn.clicked.connect(self.open_analytics)
         
+        # --- NEW: Manage Data Button (Only for Admins) ---
+        self.manage_btn = QPushButton("⚙️ Manage Data")
+        self.manage_btn.setStyleSheet(standard_btn_style)
+        self.manage_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.manage_btn.clicked.connect(self.open_manage_data)
+        
         logout_btn = QPushButton("Logout")
-        logout_btn.setObjectName("OutlineBtn")
+        logout_btn.setStyleSheet(red_btn_style)
         logout_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         logout_btn.clicked.connect(self.handle_logout)
         
+        nav_layout.addWidget(self.week_label)
         nav_layout.addWidget(self.title)
         nav_layout.addStretch()
         nav_layout.addWidget(refresh_btn)
         nav_layout.addWidget(analytics_btn)
-        nav_layout.addWidget(self.week_label)
+        nav_layout.addWidget(self.manage_btn)
         nav_layout.addWidget(logout_btn)
         
         # --- 2. KPI ROW ---
@@ -399,9 +416,19 @@ class DashboardPage(QWidget):
             # Hide the "By Professor" filter because they can only see themselves!
             self.filter_mode.clear()
             self.filter_mode.addItems(["By Course"])
+            self.manage_btn.hide()
         else:
             self.title.setText("<b>🎓 Admin Dashboard</b><br><span style='font-size:12px; color:gray;'>A.W.A.R.E. System Live Data</span>")
             self.filter_mode.clear()
             self.filter_mode.addItems(["By Course", "By Professor"])
-            
+            self.manage_btn.show()
+
+    def open_manage_data(self):
+        try:
+            from pages.manage_data import ManageDataWindow
+            self.manage_window = ManageDataWindow()
+            self.manage_window.show()
+        except Exception as e:
+            QMessageBox.critical(self, "Launch Error", f"Could not open Data Manager: {e}")
+    
         self.fetch_live_data()

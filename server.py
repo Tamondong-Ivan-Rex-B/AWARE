@@ -134,19 +134,34 @@ def get_topics():
 # --- Submit Evaluation Route ---
 @app.route("/submit_evaluation", methods=["POST"])
 def submit_evaluation():
+
     data = request.json
+<<<<<<< HEAD
+=======
+
+    # TASK 2 - DUPLICATE CHECK
+    # Extract values FIRST (required for duplicate check)
+>>>>>>> 232b05e (Task 2: Duplicate Submission Prevention)
     student_id = data.get("student_id")
     session_id = data.get("session_id")
+
     clarity_score = data.get("clarity_score")
     pacing_score = data.get("pacing_score")
     comprehension_score = data.get("comprehension_score")
     engagement_score = data.get("engagement_score")
+<<<<<<< HEAD
     
+=======
+
+    # Handle optional fields
+>>>>>>> 232b05e (Task 2: Duplicate Submission Prevention)
     study_hours = data.get("study_hours")
     if not study_hours or study_hours == "": study_hours = 0
     comments = data.get("comments", "")
 
+    # Connect to database
     db = get_db_connection()
+<<<<<<< HEAD
     cursor = db.cursor()
     try:
         submission_date = GLOBAL_TEST_DATE if GLOBAL_TEST_DATE else datetime.now().date()
@@ -197,9 +212,67 @@ def submit_evaluation():
             db.commit()
 
         return jsonify({"status": "success", "message": "Evaluation submitted successfully!"}), 200
+=======
+    if not db:
+        return jsonify({"status": "error", "message": "Database connection failed."}), 500
+
+    try:
+        # START OF TASK 2 (DUPLICATE CHECK)
+
+        check_cursor = db.cursor(dictionary=True)
+
+        check_sql = """
+            SELECT COUNT(*) AS count 
+            FROM evaluation 
+            WHERE Student_ID = %s AND Session_ID = %s
+        """
+
+        check_cursor.execute(check_sql, (student_id, session_id))
+        result = check_cursor.fetchone()
+
+        if result["count"] > 0:
+            return jsonify({
+                "status": "error",
+                "message": "Session already evaluated."
+            }), 400
+
+        # END OF TASK 2 (DUPLICATE CHECK)
+
+        cursor = db.cursor()
+
+        submission_date = GLOBAL_TEST_DATE if GLOBAL_TEST_DATE else datetime.now()
+
+        sql = """
+            INSERT INTO evaluation 
+            (Session_ID, Student_ID, Clarity_Score, Pacing_Score, Comprehension_Score, Engagement_Score, Study_Hours, Additional_Comments, Submission_Date) 
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """
+
+        val = (
+            session_id,
+            student_id,
+            clarity_score,
+            pacing_score,
+            comprehension_score,
+            engagement_score,
+            study_hours,
+            comments,
+            submission_date
+        )
+
+        cursor.execute(sql, val)
+        db.commit()
+
+        return jsonify({
+            "status": "success",
+            "message": "Evaluation submitted successfully!"
+        }), 200
+
+>>>>>>> 232b05e (Task 2: Duplicate Submission Prevention)
     except Exception as e:
         db.rollback()
         return jsonify({"status": "error", "message": str(e)}), 500
+
     finally:
         db.close()
 

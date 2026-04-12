@@ -16,13 +16,14 @@ GLOBAL_TEST_DATE = None
 
 # --- Database Connection ---
 def get_db_connection():
-    try:
-        return mysql.connector.connect(
-            host="localhost", user="root", password="", database="aware_db"
-        )
-    except mysql.connector.Error as err:
-        print(f"MySQL Connection Error: {err}")
-        return None
+    return mysql.connector.connect(
+        host="mysql-c9ec3ac-aware-system.b.aivencloud.com",
+        port=20158,
+        user="avnadmin",
+        password="AVNS_rwLB221VeS4wZ-6lBlr",
+        database="defaultdb",
+        ssl_ca="ca.pem"
+    )
 
 # --- Login Route ---
 @app.route("/login", methods=["POST"])

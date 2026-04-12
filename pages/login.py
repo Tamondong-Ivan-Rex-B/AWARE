@@ -113,7 +113,7 @@ class LoginPage(QWidget):
         try:
             # Send the credentials to the Flask server on port 5001
             response = requests.post(
-                "http://127.0.0.1:5001/login",
+                "https://aware-api.onrender.com/login",
                 json={"username": username, "password": password, "role": role},
                 timeout=5,
             )

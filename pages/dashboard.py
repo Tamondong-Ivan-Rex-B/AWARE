@@ -188,7 +188,7 @@ class DashboardPage(QWidget):
             if hasattr(self, 'current_user') and self.current_user.get("role") == "professor":
                 params['prof_id'] = self.current_user['user']['id']
                 
-            response = requests.get("http://127.0.0.1:5001/api/get_dashboard_data")
+            response = requests.get("https://aware-api.onrender.com/api/get_dashboard_data")
             if response.status_code != 200:
                 QMessageBox.warning(self, "Server Error", "Server returned an error.")
                 return
@@ -392,7 +392,7 @@ class DashboardPage(QWidget):
     
     def fetch_current_week(self):
         try:
-            response = requests.get("http://127.0.0.1:5001/api/week", timeout=3)
+            response = requests.get("https://aware-api.onrender.com/api/week", timeout=3)
             if response.status_code == 200:
                 data = response.json()
                 if data["status"] in ["Not Started", "Sembreak"]:

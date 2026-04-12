@@ -172,15 +172,15 @@ class ManageDataWindow(QWidget):
     def add_prof(self):
         p = self.get_prof_payload()
         if not p['Password']: return QMessageBox.warning(self, "Error", "Password required!")
-        if requests.post("http://127.0.0.1:5001/api/admin/professors", json=p).status_code == 201: self.load_all_data()
+        if requests.post("https://aware-api.onrender.com/api/admin/professors", json=p).status_code == 201: self.load_all_data()
 
     def update_prof(self):
         if not self.prof_id_hidden: return QMessageBox.warning(self, "Error", "Select a Professor first!")
-        if requests.put(f"http://127.0.0.1:5001/api/admin/professors/{self.prof_id_hidden}", json=self.get_prof_payload()).status_code == 200: self.load_all_data()
+        if requests.put(f"https://aware-api.onrender.com/api/admin/professors/{self.prof_id_hidden}", json=self.get_prof_payload()).status_code == 200: self.load_all_data()
 
     def delete_prof(self):
         if self.prof_id_hidden and QMessageBox.question(self, "Confirm", "Delete?") == QMessageBox.StandardButton.Yes:
-            if requests.delete(f"http://127.0.0.1:5001/api/admin/professors/{self.prof_id_hidden}").status_code == 200: self.load_all_data()
+            if requests.delete(f"https://aware-api.onrender.com/api/admin/professors/{self.prof_id_hidden}").status_code == 200: self.load_all_data()
 
 
     # ==========================================================
@@ -236,15 +236,15 @@ class ManageDataWindow(QWidget):
         return {"First_Name": self.in_guard_first.text(), "Last_Name": self.in_guard_last.text(), "Contact_Number": self.in_guard_phone.text(), "Email": self.in_guard_email.text()}
 
     def add_guard(self):
-        if requests.post("http://127.0.0.1:5001/api/admin/guardians", json=self.get_guard_payload()).status_code == 201: self.load_all_data()
+        if requests.post("https://aware-api.onrender.com/api/admin/guardians", json=self.get_guard_payload()).status_code == 201: self.load_all_data()
 
     def update_guard(self):
         if not self.guard_id_hidden: return QMessageBox.warning(self, "Error", "Select a Guardian first!")
-        if requests.put(f"http://127.0.0.1:5001/api/admin/guardians/{self.guard_id_hidden}", json=self.get_guard_payload()).status_code == 200: self.load_all_data()
+        if requests.put(f"https://aware-api.onrender.com/api/admin/guardians/{self.guard_id_hidden}", json=self.get_guard_payload()).status_code == 200: self.load_all_data()
 
     def delete_guard(self):
         if self.guard_id_hidden and QMessageBox.question(self, "Confirm", "Delete?") == QMessageBox.StandardButton.Yes:
-            if requests.delete(f"http://127.0.0.1:5001/api/admin/guardians/{self.guard_id_hidden}").status_code == 200: self.load_all_data()
+            if requests.delete(f"https://aware-api.onrender.com/api/admin/guardians/{self.guard_id_hidden}").status_code == 200: self.load_all_data()
 
 
     # ==========================================================
@@ -307,15 +307,15 @@ class ManageDataWindow(QWidget):
     def add_stud(self):
         p = self.get_stud_payload()
         if not p['Password']: return QMessageBox.warning(self, "Error", "Password required!")
-        if requests.post("http://127.0.0.1:5001/api/admin/students", json=p).status_code == 201: self.load_all_data()
+        if requests.post("https://aware-api.onrender.com/api/admin/students", json=p).status_code == 201: self.load_all_data()
 
     def update_stud(self):
         if not self.stud_id_hidden: return QMessageBox.warning(self, "Error", "Select a Student first!")
-        if requests.put(f"http://127.0.0.1:5001/api/admin/students/{self.stud_id_hidden}", json=self.get_stud_payload()).status_code == 200: self.load_all_data()
+        if requests.put(f"https://aware-api.onrender.com/api/admin/students/{self.stud_id_hidden}", json=self.get_stud_payload()).status_code == 200: self.load_all_data()
 
     def delete_stud(self):
         if self.stud_id_hidden and QMessageBox.question(self, "Confirm", "Delete?") == QMessageBox.StandardButton.Yes:
-            if requests.delete(f"http://127.0.0.1:5001/api/admin/students/{self.stud_id_hidden}").status_code == 200: self.load_all_data()
+            if requests.delete(f"https://aware-api.onrender.com/api/admin/students/{self.stud_id_hidden}").status_code == 200: self.load_all_data()
 
 
     # ==========================================================
@@ -368,15 +368,15 @@ class ManageDataWindow(QWidget):
         c = self.in_course_code.text().strip()
         t = self.in_course_title.text().strip()
         if not c: return QMessageBox.warning(self, "Error", "Code Required!")
-        if requests.post("http://127.0.0.1:5001/api/admin/courses", json={"Course_Code": c, "Course_Title": t}).status_code == 201: self.load_all_data()
+        if requests.post("https://aware-api.onrender.com/api/admin/courses", json={"Course_Code": c, "Course_Title": t}).status_code == 201: self.load_all_data()
 
     def update_course(self):
         if not self.course_id_hidden: return QMessageBox.warning(self, "Error", "Select Course first!")
-        if requests.put(f"http://127.0.0.1:5001/api/admin/courses/{self.course_id_hidden}", json={"Course_Title": self.in_course_title.text()}).status_code == 200: self.load_all_data()
+        if requests.put(f"https://aware-api.onrender.com/api/admin/courses/{self.course_id_hidden}", json={"Course_Title": self.in_course_title.text()}).status_code == 200: self.load_all_data()
 
     def delete_course(self):
         if self.course_id_hidden and QMessageBox.question(self, "Confirm", "Delete?") == QMessageBox.StandardButton.Yes:
-            if requests.delete(f"http://127.0.0.1:5001/api/admin/courses/{self.course_id_hidden}").status_code == 200: self.load_all_data()
+            if requests.delete(f"https://aware-api.onrender.com/api/admin/courses/{self.course_id_hidden}").status_code == 200: self.load_all_data()
 
 
     # ==========================================================
@@ -446,15 +446,15 @@ class ManageDataWindow(QWidget):
     def add_enr(self):
         p = self.get_enr_payload()
         if not p['Student_ID'] or not p['Course_Code']: return QMessageBox.warning(self, "Error", "Select Student/Course")
-        if requests.post("http://127.0.0.1:5001/api/admin/enrollments", json=p).status_code == 201: self.load_all_data()
+        if requests.post("https://aware-api.onrender.com/api/admin/enrollments", json=p).status_code == 201: self.load_all_data()
 
     def update_enr(self):
         if not self.enroll_id_hidden: return QMessageBox.warning(self, "Error", "Select Enrollment first!")
-        if requests.put(f"http://127.0.0.1:5001/api/admin/enrollments/{self.enroll_id_hidden}", json=self.get_enr_payload()).status_code == 200: self.load_all_data()
+        if requests.put(f"https://aware-api.onrender.com/api/admin/enrollments/{self.enroll_id_hidden}", json=self.get_enr_payload()).status_code == 200: self.load_all_data()
 
     def delete_enr(self):
         if self.enroll_id_hidden and QMessageBox.question(self, "Confirm", "Unenroll?") == QMessageBox.StandardButton.Yes:
-            if requests.delete(f"http://127.0.0.1:5001/api/admin/enrollments/{self.enroll_id_hidden}").status_code == 200: self.load_all_data()
+            if requests.delete(f"https://aware-api.onrender.com/api/admin/enrollments/{self.enroll_id_hidden}").status_code == 200: self.load_all_data()
 
 
     # ==========================================================
@@ -521,15 +521,15 @@ class ManageDataWindow(QWidget):
         return {"Course_Code": self.in_sched_course.currentData(), "Room_Name": self.in_sched_room.text(), "Schedule_Day": self.in_sched_day.currentText(), "Start_Time": self.in_sched_start.text(), "End_Time": self.in_sched_end.text()}
 
     def add_sched(self):
-        if requests.post("http://127.0.0.1:5001/api/admin/schedules", json=self.get_sched_payload()).status_code == 201: self.load_all_data()
+        if requests.post("https://aware-api.onrender.com/api/admin/schedules", json=self.get_sched_payload()).status_code == 201: self.load_all_data()
 
     def update_sched(self):
         if not self.sched_id_hidden: return QMessageBox.warning(self, "Error", "Select Schedule first!")
-        if requests.put(f"http://127.0.0.1:5001/api/admin/schedules/{self.sched_id_hidden}", json=self.get_sched_payload()).status_code == 200: self.load_all_data()
+        if requests.put(f"https://aware-api.onrender.com/api/admin/schedules/{self.sched_id_hidden}", json=self.get_sched_payload()).status_code == 200: self.load_all_data()
 
     def delete_sched(self):
         if self.sched_id_hidden and QMessageBox.question(self, "Confirm", "Delete?") == QMessageBox.StandardButton.Yes:
-            if requests.delete(f"http://127.0.0.1:5001/api/admin/schedules/{self.sched_id_hidden}").status_code == 200: self.load_all_data()
+            if requests.delete(f"https://aware-api.onrender.com/api/admin/schedules/{self.sched_id_hidden}").status_code == 200: self.load_all_data()
 
 
     # ==========================================================
@@ -560,7 +560,7 @@ class ManageDataWindow(QWidget):
     def del_eval(self):
         sel = self.eval_table.selectedItems()
         if sel and QMessageBox.question(self, "Warning", "Delete?") == QMessageBox.StandardButton.Yes:
-            if requests.delete(f"http://127.0.0.1:5001/api/admin/evaluations/{sel[0].text()}").status_code == 200: self.load_all_data()
+            if requests.delete(f"https://aware-api.onrender.com/api/admin/evaluations/{sel[0].text()}").status_code == 200: self.load_all_data()
 
 
     # ==========================================================
@@ -575,7 +575,7 @@ class ManageDataWindow(QWidget):
         self.clear_sched()
         
         try:
-            guardians = requests.get("http://127.0.0.1:5001/api/admin/guardians").json().get("data", [])
+            guardians = requests.get("https://aware-api.onrender.com/api/admin/guardians").json().get("data", [])
             self.guard_table.setRowCount(len(guardians))
             self.in_stud_guard.blockSignals(True)
             self.in_stud_guard.clear()
@@ -589,7 +589,7 @@ class ManageDataWindow(QWidget):
                 self.in_stud_guard.addItem(f"{g.get('First_Name', '')} {g.get('Last_Name', '')}", g.get('Guardian_ID'))
             self.in_stud_guard.blockSignals(False)
 
-            profs = requests.get("http://127.0.0.1:5001/api/admin/professors").json().get("data", [])
+            profs = requests.get("https://aware-api.onrender.com/api/admin/professors").json().get("data", [])
             self.prof_table.setRowCount(len(profs))
             for i, p in enumerate(profs):
                 self.prof_table.setItem(i, 0, QTableWidgetItem(str(p.get('Professor_ID', ''))))
@@ -598,7 +598,7 @@ class ManageDataWindow(QWidget):
                 self.prof_table.setItem(i, 3, QTableWidgetItem(p.get('Username', '')))
                 self.prof_table.setItem(i, 4, QTableWidgetItem(p.get('Department', '')))
 
-            studs = requests.get("http://127.0.0.1:5001/api/admin/students").json().get("data", [])
+            studs = requests.get("https://aware-api.onrender.com/api/admin/students").json().get("data", [])
             self.stud_table.setRowCount(len(studs))
             self.in_enr_student.clear()
             for i, s in enumerate(studs):
@@ -609,7 +609,7 @@ class ManageDataWindow(QWidget):
                 self.stud_table.setItem(i, 4, QTableWidgetItem(s.get('Guardian_Name', 'None')))
                 self.in_enr_student.addItem(f"{s.get('First_Name', '')} {s.get('Last_Name', '')}", s.get('Student_ID'))
 
-            courses = requests.get("http://127.0.0.1:5001/api/admin/courses").json().get("data", [])
+            courses = requests.get("https://aware-api.onrender.com/api/admin/courses").json().get("data", [])
             self.course_table.setRowCount(len(courses))
             self.in_enr_course.clear()
             self.in_sched_course.clear()
@@ -620,7 +620,7 @@ class ManageDataWindow(QWidget):
                 self.in_enr_course.addItem(code, code)
                 self.in_sched_course.addItem(code, code)
 
-            enrolls = requests.get("http://127.0.0.1:5001/api/admin/enrollments").json().get("data", [])
+            enrolls = requests.get("https://aware-api.onrender.com/api/admin/enrollments").json().get("data", [])
             self.enroll_table.setRowCount(len(enrolls))
             for i, enr in enumerate(enrolls):
                 self.enroll_table.setItem(i, 0, QTableWidgetItem(str(enr.get('Enrollment_ID', ''))))
@@ -633,7 +633,7 @@ class ManageDataWindow(QWidget):
                 sem_val = enr.get('Semester')
                 self.enroll_table.setItem(i, 4, QTableWidgetItem(str(sem_val) if sem_val else "N/A"))
 
-            scheds = requests.get("http://127.0.0.1:5001/api/admin/schedules").json().get("data", [])
+            scheds = requests.get("https://aware-api.onrender.com/api/admin/schedules").json().get("data", [])
             self.sched_table.setRowCount(len(scheds))
             for i, sch in enumerate(scheds):
                 self.sched_table.setItem(i, 0, QTableWidgetItem(str(sch.get('Schedule_ID', ''))))
@@ -644,7 +644,7 @@ class ManageDataWindow(QWidget):
                 self.sched_table.setItem(i, 5, QTableWidgetItem(str(sch.get('End_Time', ''))))
 
             # SMART EVALUATION LOADER: Anonymous & Date Formatted
-            evals = requests.get("http://127.0.0.1:5001/api/admin/evaluations").json().get("data", [])
+            evals = requests.get("https://aware-api.onrender.com/api/admin/evaluations").json().get("data", [])
             if hasattr(self, 'eval_table'):
                 self.eval_table.setRowCount(len(evals))
                 for i, ev in enumerate(evals):

@@ -256,7 +256,7 @@ class AnalyticsWindow(QWidget):
         """Fetches data from the API and populates the filter dropdowns."""
         try:
             params = {'prof_id': self.prof_id} if self.prof_id else {}
-            res = requests.get("http://127.0.0.1:5001/api/get_dashboard_data", params=params, timeout=5)
+            res = requests.get("https://aware-api.onrender.com/api/get_dashboard_data", params=params, timeout=5)
             if res.status_code == 200:
                 self.all_evaluations = res.json().get("evaluations", [])
                 
@@ -295,7 +295,7 @@ class AnalyticsWindow(QWidget):
                 if self.week_filter.findText(curr_week) >= 0: self.week_filter.setCurrentText(curr_week)
                 self.week_filter.blockSignals(False)
 
-            res_grades = requests.get("http://127.0.0.1:5001/api/analytics/grades_vs_evals", params=params, timeout=5)
+            res_grades = requests.get("https://aware-api.onrender.com/api/analytics/grades_vs_evals", params=params, timeout=5)
             if res_grades.status_code == 200:
                 self.all_grade_data = res_grades.json().get("data", [])
 

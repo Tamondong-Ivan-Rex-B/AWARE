@@ -1,4 +1,5 @@
-from flask import Flask, request, jsonify
+import os
+from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 import mysql.connector
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -17,11 +18,11 @@ GLOBAL_TEST_DATE = None
 # --- Database Connection ---
 def get_db_connection():
     return mysql.connector.connect(
-        host="mysql-c9ec3ac-aware-system.b.aivencloud.com",
-        port=20158,
-        user="avnadmin",
-        password="AVNS_rwLB221VeS4wZ-6lBlr",
-        database="defaultdb",
+        host=os.getenv('DB_HOST'),
+        port=os.getenv('DB_PORT'),
+        user=os.getenv('DB_USER'),
+        password=os.getenv('DB_PASSWORD'),
+        database=os.getenv('DB_NAME'),
         ssl_ca="ca.pem"
     )
 
@@ -776,6 +777,10 @@ def api_delete_evaluation(eval_id):
         return jsonify({"status": "error", "message": str(e)}), 500
     finally:
         db.close()
+
+@app.route('/')
+def home():
+    return render_template('index.html')
 
 if __name__ == "__main__":
     app.run(debug=True, port=5001)

@@ -292,18 +292,8 @@
             .rating-group {
                 display: grid;
                 grid-template-columns: repeat(5, 1fr);
-                /* Keep them in row but smaller, or change to 1fr to stack */
                 gap: 5px;
             }
-
-            /* If buttons still overlap, uncomment the lines below to stack them */
-            /* .rating-group {
-                flex-direction: column;
-            }
-            .rating-btn {
-                width: 100%;
-            } 
-            */
 
             .navbar {
                 flex-direction: column;
@@ -335,9 +325,17 @@
                 <input type="email" class="form-control" id="studentEmail" placeholder="2024001@tip.edu.ph">
             </div>
 
-            <div class="form-group" style="margin-bottom: 24px;">
+            <div class="form-group" style="margin-bottom: 16px;">
                 <label>Password</label>
                 <input type="password" class="form-control" id="studentPassword" placeholder="Enter your password">
+
+                <div style="margin-top: 8px; display: flex; align-items: center; gap: 8px;">
+                    <input type="checkbox" id="togglePassword" style="cursor: pointer;">
+                    <label for="togglePassword"
+                        style="font-size: 12px; font-weight: normal; cursor: pointer; margin-bottom: 0;">
+                        Show Password
+                    </label>
+                </div>
             </div>
 
             <button class="btn-primary" style="width: 100%; padding: 12px;" onclick="handleLogin()">Sign In</button>
@@ -509,11 +507,20 @@
         </div>
 
         <script>
+            // --- Password Toggle Logic ---
+            const passwordInput = document.getElementById('studentPassword');
+            const toggleCheckbox = document.getElementById('togglePassword');
+
+            toggleCheckbox.addEventListener('change', function () {
+                const type = this.checked ? 'text' : 'password';
+                passwordInput.setAttribute('type', type);
+            });
+
             // Track state
             let currentStudentId = null;
-            //TASK 1 - added
             let isSubmitting = false;
             let lastSubmissionKey = "";
+
             // 1. Score tracking
             let clarityScore = 3;
             let pacingScore = 3;
@@ -522,7 +529,6 @@
 
             // 2. Rating click function
             function setRating(category, score) {
-                // Update the variable
                 if (category === 'clarity') clarityScore = score;
                 if (category === 'pacing') pacingScore = score;
                 if (category === 'comprehension') comprehensionScore = score;
@@ -576,6 +582,10 @@
             function handleLogout() {
                 document.getElementById('studentEmail').value = '';
                 document.getElementById('studentPassword').value = '';
+                // Reset password visibility on logout
+                passwordInput.setAttribute('type', 'password');
+                toggleCheckbox.checked = false;
+
                 currentStudentId = null;
 
                 document.getElementById('dashboard-view').classList.add('hidden');

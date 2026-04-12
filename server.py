@@ -2,13 +2,12 @@ import os
 from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 import mysql.connector
-from mysql.connector import pooling
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 import math
 
-
 app = Flask(__name__)
+CORS(app)
 
 # --- GLOBAL TIME MACHINE FOR TESTING ---
 # Change this date to test different weeks. 

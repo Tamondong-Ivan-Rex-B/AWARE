@@ -73,36 +73,36 @@ Open a terminal and start the Flask API. Keep this terminal open.
 ## 📸 Screenshots
 | Student Web Login Portal |
 |:---:|
-| ![Student Web Portal](images/ss%20(19).png) |
+| ![Student Web Portal](static/images/ss%20(19).png) |
 
 | Student Web Features |
 |:---:|
-| ![Student Web Portal](images/ss%20(20).png) |
-| ![Student Web Portal](images/ss%20(21).png) |
-| Submission of Evaluation Data ![Student Web Portal](images/ss%20(22).png) |
-| Evaluation Data sent to Admin Dashboard![Student Web Portal](images/ss%20(23).png) |
+| ![Student Web Portal](static/images/ss%20(20).png) |
+| ![Student Web Portal](static/images/ss%20(21).png) |
+| Submission of Evaluation Data ![Student Web Portal](static/images/ss%20(22).png) |
+| Evaluation Data sent to Admin Dashboard![Student Web Portal](static/images/ss%20(23).png) |
 
 | Professor Desktop Login Page | Admin Desktop Login Page |
 |:---:|:---:|
-| ![Professor Dashboard](images/ss%20(3).png) | ![Admin Dashboard](images/ss%20(4).png) |
+| ![Professor Dashboard](static/images/ss%20(3).png) | ![Admin Dashboard](static/images/ss%20(4).png) |
 
 | Professor Desktop Dashboard | Admin Desktop Dashboard |
 |:---:|:---:|
-| ![Professor Dashboard](images/ss%20(12).png) | ![Admin Dashboard](images/ss%20(5).png) |
+| ![Professor Dashboard](static/images/ss%20(12).png) | ![Admin Dashboard](static/images/ss%20(5).png) |
 
 
 | Professor Desktop Features and Analytics | Admin Desktop Feature and Analytics |
 |:---:|:---:|
-| ![Professor Dashboard](images/ss%20(13).png) | ![Admin Dashboard](images/ss%20(6).png) |
-| ![Professor Dashboard](images/ss%20(14).png) | ![Admin Dashboard](images/ss%20(7).png) |
-| ![Professor Dashboard](images/ss%20(15).png) | ![Admin Dashboard](images/ss%20(8).png) |
-| ![Professor Dashboard](images/ss%20(16).png) | ![Admin Dashboard](images/ss%20(9).png) |
-| ![Professor Dashboard](images/ss%20(17).png) | ![Admin Dashboard](images/ss%20(10).png) |
-| ![Professor Dashboard](images/ss%20(18).png) | ![Admin Dashboard](images/ss%20(11).png) |
+| ![Professor Dashboard](static/images/ss%20(13).png) | ![Admin Dashboard](static/images/ss%20(6).png) |
+| ![Professor Dashboard](static/images/ss%20(14).png) | ![Admin Dashboard](static/images/ss%20(7).png) |
+| ![Professor Dashboard](static/images/ss%20(15).png) | ![Admin Dashboard](static/images/ss%20(8).png) |
+| ![Professor Dashboard](static/images/ss%20(16).png) | ![Admin Dashboard](static/images/ss%20(9).png) |
+| ![Professor Dashboard](static/images/ss%20(17).png) | ![Admin Dashboard](static/images/ss%20(10).png) |
+| ![Professor Dashboard](static/images/ss%20(18).png) | ![Admin Dashboard](static/images/ss%20(11).png) |
 
 | Database |
 |:---:|
-| ![Database](images/ss%20(24).png) |
+| ![Database](static/images/ss%20(24).png) |
 ---
 
 ## 👥 Meet the Team

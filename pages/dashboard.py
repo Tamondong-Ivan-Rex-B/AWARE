@@ -2,8 +2,24 @@ import requests
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox,
                              QPushButton, QFrame, QTableWidget, QTableWidgetItem, 
                              QHeaderView, QMessageBox, QMenu)
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QFont, QCursor
+
+class ApiWorker(QThread):
+    finished_success = pyqtSignal(list) # Sends data back
+    finished_error = pyqtSignal(str)    # Sends error message back
+
+    def run(self):
+        try:
+            response = requests.get("https://aware-api.onrender.com/api/get_dashboard_data")
+            response.raise_for_status() # Check for 404 or 500 errors
+            
+            # Tell the main app we are done and hand over the data
+            self.finished_success.emit(response.json()) 
+            
+        except Exception as e:
+            # If Render is asleep or fails, tell the main app
+            self.finished_error.emit(str(e))
 
 class DashboardPage(QWidget):
     def __init__(self, main_window):
@@ -432,3 +448,32 @@ class DashboardPage(QWidget):
             QMessageBox.critical(self, "Launch Error", f"Could not open Data Manager: {e}")
     
         self.fetch_live_data()
+    
+    def refresh_button_clicked(self):
+        # Prevent the user from spam-clicking the button while it loads
+        self.refresh_button.setEnabled(False)
+        self.refresh_button.setText("Loading Data...")
+
+        # Hire the worker
+        self.worker = ApiWorker()
+        
+        # Tell the worker what to do when it finishes
+        self.worker.finished_success.connect(self.on_data_loaded)
+        self.worker.finished_error.connect(self.on_data_error)
+        
+        # Start the background job! (The UI will not freeze here)
+        self.worker.start()
+
+    def on_data_loaded(self, data):
+        # This triggers when the worker succeeds
+        self.update_table(data)
+        
+        # Reset the button
+        self.refresh_button.setEnabled(True)
+        self.refresh_button.setText("Refresh Data")
+
+    def on_data_error(self, error_message):
+        # This triggers if the worker fails
+        print(f"Server Error: {error_message}")
+        self.refresh_button.setEnabled(True)
+        self.refresh_button.setText("Error! Try Again.")

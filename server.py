@@ -17,21 +17,15 @@ GLOBAL_TEST_DATE = None
 #GLOBAL_TEST_DATE = datetime(2026, 3, 26)
 
 # --- Database Connection ---
-dbconfig = {
-    "host": os.getenv('DB_HOST'),
-    "user": os.getenv('DB_USER'),
-    "password": os.getenv('DB_PASSWORD'),
-    "database": os.getenv('DB_NAME'),
-    "port": os.getenv('DB_PORT'),
-    "ssl_ca": "ca.pem"
-}
-
-# This keeps 5 connections open and ready to use instantly
-connection_pool = pooling.MySQLConnectionPool(pool_name="aware_pool", pool_size=5, **dbconfig)
-
-# Inside your routes, grab a connection from the pool instead of making a new one
 def get_db_connection():
-    return connection_pool.get_connection()
+    return mysql.connector.connect(
+        host=os.getenv('DB_HOST'),
+        port=os.getenv('DB_PORT'),
+        user=os.getenv('DB_USER'),
+        password=os.getenv('DB_PASSWORD'),
+        database=os.getenv('DB_NAME'),
+        ssl_ca="ca.pem"
+    )
 
 # --- Login Route ---
 @app.route("/login", methods=["POST"])

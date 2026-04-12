@@ -1,13 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-    
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>A.W.A.R.E. Student Portal</title>
     <style>
         /* --- GLOBAL STYLES & COLORS --- */
-        /* --- FOR DEMO --- */
         :root {
             --bg-color: #f4f6f8;
             --card-bg: #ffffff;
@@ -32,7 +31,10 @@
         }
 
         /* --- UTILITY CLASSES --- */
-        .hidden { display: none !important; }
+        .hidden {
+            display: none !important;
+        }
+
         .btn-primary {
             background-color: #0f172a;
             color: white;
@@ -44,7 +46,11 @@
             width: 100%;
             transition: background 0.2s;
         }
-        .btn-primary:hover { background-color: #1e293b; }
+
+        .btn-primary:hover {
+            background-color: #1e293b;
+        }
+
         .card {
             background: var(--card-bg);
             border-radius: 12px;
@@ -61,14 +67,17 @@
             align-items: center;
             justify-content: center;
         }
+
         .login-container {
             width: 100%;
             max-width: 400px;
         }
+
         .login-header {
             text-align: center;
             margin-bottom: 24px;
         }
+
         .logo-icon {
             background: #2563eb;
             color: white;
@@ -81,13 +90,18 @@
             font-size: 24px;
             margin-bottom: 12px;
         }
-        .form-group { margin-bottom: 16px; }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
         .form-group label {
             display: block;
             font-size: 14px;
             font-weight: 600;
             margin-bottom: 6px;
         }
+
         .form-control {
             width: 100%;
             padding: 10px 14px;
@@ -96,6 +110,7 @@
             border-radius: 6px;
             font-size: 14px;
         }
+
         .demo-box {
             background-color: #f8fafc;
             border: 1px solid var(--border-color);
@@ -112,7 +127,7 @@
             margin: 0 auto;
             padding: 20px;
         }
-        
+
         /* Navbar */
         .navbar {
             display: flex;
@@ -121,9 +136,22 @@
             padding: 16px 0;
             margin-bottom: 20px;
         }
-        .nav-brand { display: flex; align-items: center; gap: 12px; }
-        .nav-brand h2 { font-size: 20px; }
-        .nav-brand p { font-size: 14px; color: var(--text-gray); }
+
+        .nav-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .nav-brand h2 {
+            font-size: 20px;
+        }
+
+        .nav-brand p {
+            font-size: 14px;
+            color: var(--text-gray);
+        }
+
         .btn-outline {
             background: transparent;
             border: 1px solid var(--border-color);
@@ -153,20 +181,35 @@
         }
 
         @media (max-width: 768px) {
-            .dashboard-grid { grid-template-columns: 1fr; }
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
         }
 
         /* 5-Button Rating Styles (Replaces Sliders) */
-        .rating-container { margin-bottom: 32px; }
-        .rating-header { margin-bottom: 12px; }
-        .rating-header h4 { margin-bottom: 4px; }
-        .rating-header p { font-size: 13px; color: var(--text-gray); }
-        
+        .rating-container {
+            margin-bottom: 32px;
+        }
+
+        .rating-header {
+            margin-bottom: 12px;
+        }
+
+        .rating-header h4 {
+            margin-bottom: 4px;
+        }
+
+        .rating-header p {
+            font-size: 13px;
+            color: var(--text-gray);
+        }
+
         .rating-group {
             display: flex;
             gap: 8px;
             margin-bottom: 8px;
         }
+
         .rating-btn {
             flex: 1;
             padding: 12px 0;
@@ -179,15 +222,18 @@
             cursor: pointer;
             transition: all 0.2s;
         }
+
         .rating-btn:hover {
             background-color: #e2e8f0;
         }
+
         .rating-btn.active {
             background-color: var(--primary-purple);
             color: white;
             border-color: var(--primary-purple);
             box-shadow: 0 4px 6px -1px rgba(109, 40, 217, 0.3);
         }
+
         .rating-labels {
             display: flex;
             justify-content: space-between;
@@ -208,6 +254,7 @@
             padding: 16px;
             margin-bottom: 12px;
         }
+
         .recent-item {
             background: #f8fafc;
             border-radius: 8px;
@@ -215,6 +262,7 @@
             margin-bottom: 12px;
             font-size: 14px;
         }
+
         .badge {
             background: white;
             border: 1px solid var(--border-color);
@@ -223,8 +271,53 @@
             font-size: 12px;
             margin-right: 6px;
         }
+
+        /* --- ADDED FOR TASK 3: MOBILE RESPONSIVENESS --- */
+        @media screen and (max-width: 600px) {
+            #dashboard-view {
+                padding: 12px;
+            }
+
+            .hero-banner {
+                flex-direction: column;
+                text-align: center;
+                gap: 16px;
+                padding: 20px;
+            }
+
+            .hero-banner div {
+                text-align: center !important;
+            }
+
+            .rating-group {
+                display: grid;
+                grid-template-columns: repeat(5, 1fr);
+                /* Keep them in row but smaller, or change to 1fr to stack */
+                gap: 5px;
+            }
+
+            /* If buttons still overlap, uncomment the lines below to stack them */
+            /* .rating-group {
+                flex-direction: column;
+            }
+            .rating-btn {
+                width: 100%;
+            } 
+            */
+
+            .navbar {
+                flex-direction: column;
+                gap: 15px;
+                text-align: center;
+            }
+
+            .nav-brand {
+                flex-direction: column;
+            }
+        }
     </style>
 </head>
+
 <body>
 
     <div id="login-view">
@@ -233,21 +326,21 @@
             <h2>Welcome to A.W.A.R.E.</h2>
             <p style="color: var(--text-gray); margin-top: 4px;">Sign in to access your dashboard</p>
         </div>
-        
+
         <div class="card login-container">
             <h3 style="margin-bottom: 16px;">Sign In</h3>
-            
-                <div class="form-group">
-                    <label>Email</label>
-                    <input type="email" class="form-control" id="studentEmail" placeholder="2024001@tip.edu.ph">
-                </div>
-                
-                <div class="form-group" style="margin-bottom: 24px;">
-                    <label>Password</label>
-                    <input type="password" class="form-control" id="studentPassword" placeholder="Enter your password">
-                </div>
-                
-                <button class="btn-primary" style="width: 100%; padding: 12px;" onclick="handleLogin()">Sign In</button>
+
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" class="form-control" id="studentEmail" placeholder="2024001@tip.edu.ph">
+            </div>
+
+            <div class="form-group" style="margin-bottom: 24px;">
+                <label>Password</label>
+                <input type="password" class="form-control" id="studentPassword" placeholder="Enter your password">
+            </div>
+
+            <button class="btn-primary" style="width: 100%; padding: 12px;" onclick="handleLogin()">Sign In</button>
 
             <div class="demo-box">
                 <strong>Demo Credentials:</strong><br>
@@ -259,7 +352,7 @@
 
 
     <div id="dashboard-view" class="hidden">
-        
+
         <nav class="navbar">
             <div class="nav-brand">
                 <div class="logo-icon" style="width: 40px; height: 40px; font-size: 20px;">🎓</div>
@@ -284,12 +377,12 @@
         </div>
 
         <div class="dashboard-grid">
-            
+
             <div class="card">
                 <h3 style="margin-bottom: 20px; display: flex; align-items: center; gap: 8px;">
                     <span style="color: #10b981;">●</span> Weekly Evaluation
                 </h3>
-                
+
                 <div class="form-group">
                     <label>Select Course *</label>
                     <select class="form-control" id="courseSelect" onchange="loadTopics()">
@@ -373,20 +466,26 @@
                 </div>
 
                 <div class="form-group" style="margin-bottom: 24px;">
-                    <label><b>Study Hours This Week</b><br><span style="color: gray; font-size: 12px;">How many hours did you spend studying this topic outside of class?</span></label>
+                    <label><b>Study Hours This Week</b><br><span style="color: gray; font-size: 12px;">How many hours
+                            did you spend studying this topic outside of class?</span></label>
                     <div style="display: flex; align-items: center; gap: 10px;">
-                        <input type="number" class="form-control" id="studyHours" placeholder="0" min="0" max="168" style="width: 100px;">
+                        <input type="number" class="form-control" id="studyHours" placeholder="0" min="0" max="168"
+                            style="width: 100px;">
                         <span>hours</span>
                     </div>
                 </div>
 
                 <div class="form-group" style="margin-bottom: 24px;">
                     <label><b>Additional Comments (Optional)</b></label>
-                    <textarea class="form-control" id="comments" rows="4" placeholder="Any specific feedback..."></textarea>
+                    <textarea class="form-control" id="comments" rows="4"
+                        placeholder="Any specific feedback..."></textarea>
                 </div>
 
-                <button class="btn-primary" style="width: 100%; padding: 16px; font-size: 18px; border-radius: 8px; margin-top: 10px;" onclick="submitPulseCheck()">Submit Pulse Check</button>
-                <p style="text-align: center; font-size: 12px; color: var(--text-gray); margin-top: 12px;">Your response is completely anonymous.</p>
+                <button class="btn-primary"
+                    style="width: 100%; padding: 16px; font-size: 18px; border-radius: 8px; margin-top: 10px;"
+                    onclick="submitPulseCheck()">Submit Pulse Check</button>
+                <p style="text-align: center; font-size: 12px; color: var(--text-gray); margin-top: 12px;">Your response
+                    is completely anonymous.</p>
             </div>
 
             <div>
@@ -409,218 +508,199 @@
 
         </div>
 
-    <script>
-        // Track state
-        let currentStudentId = null; 
-        //TASK 1 - added
-        let isSubmitting = false;
-        let lastSubmissionKey = "";
-        // 1. Score tracking
-        let clarityScore = 3;
-        let pacingScore = 3;
-        let comprehensionScore = 3;
-        let engagementScore = 3;
+        <script>
+            // Track state
+            let currentStudentId = null;
+            //TASK 1 - added
+            let isSubmitting = false;
+            let lastSubmissionKey = "";
+            // 1. Score tracking
+            let clarityScore = 3;
+            let pacingScore = 3;
+            let comprehensionScore = 3;
+            let engagementScore = 3;
 
-        // 2. Rating click function
-        function setRating(category, score) {
-            // Update the variable
-            if (category === 'clarity') clarityScore = score;
-            if (category === 'pacing') pacingScore = score;
-            if (category === 'comprehension') comprehensionScore = score;
-            if (category === 'engagement') engagementScore = score;
+            // 2. Rating click function
+            function setRating(category, score) {
+                // Update the variable
+                if (category === 'clarity') clarityScore = score;
+                if (category === 'pacing') pacingScore = score;
+                if (category === 'comprehension') comprehensionScore = score;
+                if (category === 'engagement') engagementScore = score;
 
-            const group = document.getElementById(category + 'Group');
-            
-            if (group) {
-                const buttons = group.querySelectorAll('button'); 
-                buttons.forEach(btn => btn.classList.remove('active'));
-                buttons.forEach(btn => {
-                    if (parseInt(btn.innerText) === score) {
-                        btn.classList.add('active'); 
-                    }
-                });
-            } else {
-                console.error("HTML Error: Could not find id='" + category + "Group'");
-            }
-        }
+                const group = document.getElementById(category + 'Group');
 
-        // --- View Switching Logic ---
-        function handleLogin() {
-            const email = document.getElementById('studentEmail').value; // In demo, this is the username
-            const password = document.getElementById('studentPassword').value;
-
-            if (!email || !password) return;
-
-            // Updated to port 5001, targeting /login with exact payload server expects
-            fetch('https://aware-api.onrender.com/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: email, password: password, role: 'student' })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === "success") {
-                    currentStudentId = data.user.id; 
-                    
-                    document.getElementById('login-view').classList.add('hidden');
-                    document.getElementById('dashboard-view').classList.remove('hidden');
-                    document.getElementById('studentNameDisplay').innerText = data.user.name;
-                    
-                    loadCourses();
-                    loadStudentStats(); 
+                if (group) {
+                    const buttons = group.querySelectorAll('button');
+                    buttons.forEach(btn => btn.classList.remove('active'));
+                    buttons.forEach(btn => {
+                        if (parseInt(btn.innerText) === score) {
+                            btn.classList.add('active');
+                        }
+                    });
                 } else {
-                    alert("Login failed: " + data.message);
+                    console.error("HTML Error: Could not find id='" + category + "Group'");
                 }
-            })
-            .catch(err => console.error("Login Error:", err));
-        }
-
-        function handleLogout() {
-            document.getElementById('studentEmail').value = '';
-            document.getElementById('studentPassword').value = '';
-            currentStudentId = null;
-            
-            document.getElementById('dashboard-view').classList.add('hidden');
-            document.getElementById('login-view').classList.remove('hidden');
-        }
-
-        // --- Submission to Backend ---
-        function submitPulseCheck() {
-
-       //TASK 1 - SECURITY
-
-    // Prevent spam clicks / double submission
-    if (isSubmitting) return;
-
-    const course = document.getElementById('courseSelect').value.trim();
-    const topic = document.getElementById('topicsSelect').value.trim();
-    const hours = document.getElementById('studyHours').value;
-    const comments = document.getElementById('comments').value.trim();
-
-    // EMPTY SUBMISSION CHECK
-    if (!course || !topic) {
-        alert("Please select a course and topic before submitting.");
-        return;
-    }
-
-    // VALIDATION CHECK (study hours)
-    if (hours !== "" && (hours < 0 || hours > 168)) {
-        alert("Invalid study hours.");
-        return;
-    }
-
-    // DUPLICATE SUBMISSION PREVENTION
-    const key = `${currentStudentId}-${topic}`;
-
-    if (lastSubmissionKey === key) {
-        alert("Duplicate submission blocked.");
-        return;
-    }
-
-    // LOCK SUBMISSION
-    isSubmitting = true;
-
-    const evaluationData = {
-        student_id: currentStudentId,
-        session_id: topic,
-        clarity_score: clarityScore,
-        pacing_score: pacingScore,
-        comprehension_score: comprehensionScore,
-        engagement_score: engagementScore,
-        study_hours: hours || 0,
-        comments: comments
-    };
-
-    fetch('https://aware-api.onrender.com/submit_evaluation', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(evaluationData)
-    })
-    .then(response => response.json())
-    .then(data => {
-
-        // unlock submission
-        isSubmitting = false;
-
-        if (data.status === "success") {
-            lastSubmissionKey = key;
-            alert("Pulse Check Submitted Successfully!");
-            
-            // optional cleanup
-            document.getElementById('comments').value = "";
-            document.getElementById('studyHours').value = "";
-        } else {
-            alert("Error: " + data.message);
-        }
-    })
-    .catch(err => {
-        isSubmitting = false;
-        console.error("Submission Error:", err);
-        alert("Failed to submit. Check console.");
-    });
-
-}
-
-        // --- Populate Dropdowns ---
-        function loadCourses() {
-            fetch('https://aware-api.onrender.com/api/get_courses')
-            .then(response => response.json())
-            .then(data => {
-                const courseDropdown = document.getElementById('courseSelect');
-                courseDropdown.innerHTML = '<option value="">-- Choose a course --</option>'; 
-                
-                data.forEach(course => {
-                    courseDropdown.innerHTML += `<option value="${course.Course_Code}">${course.Course_Code} - ${course.Course_Title}</option>`;
-                });
-            })
-            .catch(err => console.error("Error loading courses:", err));
-        }
-
-        function loadTopics() {
-            const selectedCourse = document.getElementById('courseSelect').value;
-            const topicDropdown = document.getElementById('topicsSelect');
-            
-            if (!selectedCourse) {
-                topicDropdown.innerHTML = '<option value="">Select a course first...</option>';
-                return;
             }
 
-            topicDropdown.innerHTML = '<option value="">Loading topics...</option>';
+            // --- View Switching Logic ---
+            function handleLogin() {
+                const email = document.getElementById('studentEmail').value;
+                const password = document.getElementById('studentPassword').value;
 
-            fetch(`https://aware-api.onrender.com/api/get_topics?course=${selectedCourse}`)
-            .then(response => response.json())
-            .then(data => {
-                topicDropdown.innerHTML = '<option value="">-- Select the topic --</option>';
-                data.forEach(session => {
-                    topicDropdown.innerHTML += `<option value="${session.Session_ID}">${session.Topic}</option>`;
-                });
-            })
-            .catch(err => console.error("Error loading topics:", err));
-        }
+                if (!email || !password) return;
 
-        function loadStudentStats() {
-            // Don't try to load if no one is logged in
-            if (!currentStudentId) return;
+                fetch('https://aware-api.onrender.com/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: email, password: password, role: 'student' })
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === "success") {
+                            currentStudentId = data.user.id;
 
-            fetch(`https://aware-api.onrender.com/api/get_student_stats?student_id=${currentStudentId}`)
-            .then(response => response.json())
-            .then(data => {
-                // 1. Update the Total Submissions number in the Sidebar
-                document.getElementById('statTotalSubmissions').innerText = data.total_submissions;
+                            document.getElementById('login-view').classList.add('hidden');
+                            document.getElementById('dashboard-view').classList.remove('hidden');
+                            document.getElementById('studentNameDisplay').innerText = data.user.name;
 
-                // ---> ADD THIS NEW LINE <--- 
-                // Update the Hero Banner Submissions (Assuming 18 total weeks)
-                document.getElementById('heroSubmissionsDisplay').innerText = `${data.total_submissions} / 18`;
+                            loadCourses();
+                            loadStudentStats();
+                        } else {
+                            alert("Login failed: " + data.message);
+                        }
+                    })
+                    .catch(err => console.error("Login Error:", err));
+            }
 
-                // 2. Update the Recent Submissions list
-                const recentContainer = document.getElementById('recentSubmissionsContainer');
+            function handleLogout() {
+                document.getElementById('studentEmail').value = '';
+                document.getElementById('studentPassword').value = '';
+                currentStudentId = null;
 
-                if (data.recent_evals.length === 0) {
-                    recentContainer.innerHTML += '<p style="color: var(--text-gray); font-size: 14px;">No evaluations submitted yet.</p>';
-                } else {
-                    // Loop through the data and create the UI cards
-                    data.recent_evals.forEach(evaluation => { 
-                        recentContainer.innerHTML += `
+                document.getElementById('dashboard-view').classList.add('hidden');
+                document.getElementById('login-view').classList.remove('hidden');
+            }
+
+            // --- Submission to Backend ---
+            function submitPulseCheck() {
+                if (isSubmitting) return;
+
+                const course = document.getElementById('courseSelect').value.trim();
+                const topic = document.getElementById('topicsSelect').value.trim();
+                const hours = document.getElementById('studyHours').value;
+                const comments = document.getElementById('comments').value.trim();
+
+                if (!course || !topic) {
+                    alert("Please select a course and topic before submitting.");
+                    return;
+                }
+
+                if (hours !== "" && (hours < 0 || hours > 168)) {
+                    alert("Invalid study hours.");
+                    return;
+                }
+
+                const key = `${currentStudentId}-${topic}`;
+
+                if (lastSubmissionKey === key) {
+                    alert("Duplicate submission blocked.");
+                    return;
+                }
+
+                isSubmitting = true;
+
+                const evaluationData = {
+                    student_id: currentStudentId,
+                    session_id: topic,
+                    clarity_score: clarityScore,
+                    pacing_score: pacingScore,
+                    comprehension_score: comprehensionScore,
+                    engagement_score: engagementScore,
+                    study_hours: hours || 0,
+                    comments: comments
+                };
+
+                fetch('https://aware-api.onrender.com/submit_evaluation', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(evaluationData)
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        isSubmitting = false;
+
+                        if (data.status === "success") {
+                            lastSubmissionKey = key;
+                            alert("Pulse Check Submitted Successfully!");
+
+                            document.getElementById('comments').value = "";
+                            document.getElementById('studyHours').value = "";
+                        } else {
+                            alert("Error: " + data.message);
+                        }
+                    })
+                    .catch(err => {
+                        isSubmitting = false;
+                        console.error("Submission Error:", err);
+                        alert("Failed to submit. Check console.");
+                    });
+            }
+
+            // --- Populate Dropdowns ---
+            function loadCourses() {
+                fetch('https://aware-api.onrender.com/api/get_courses')
+                    .then(response => response.json())
+                    .then(data => {
+                        const courseDropdown = document.getElementById('courseSelect');
+                        courseDropdown.innerHTML = '<option value="">-- Choose a course --</option>';
+
+                        data.forEach(course => {
+                            courseDropdown.innerHTML += `<option value="${course.Course_Code}">${course.Course_Code} - ${course.Course_Title}</option>`;
+                        });
+                    })
+                    .catch(err => console.error("Error loading courses:", err));
+            }
+
+            function loadTopics() {
+                const selectedCourse = document.getElementById('courseSelect').value;
+                const topicDropdown = document.getElementById('topicsSelect');
+
+                if (!selectedCourse) {
+                    topicDropdown.innerHTML = '<option value="">Select a course first...</option>';
+                    return;
+                }
+
+                topicDropdown.innerHTML = '<option value="">Loading topics...</option>';
+
+                fetch(`https://aware-api.onrender.com/api/get_topics?course=${selectedCourse}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        topicDropdown.innerHTML = '<option value="">-- Select the topic --</option>';
+                        data.forEach(session => {
+                            topicDropdown.innerHTML += `<option value="${session.Session_ID}">${session.Topic}</option>`;
+                        });
+                    })
+                    .catch(err => console.error("Error loading topics:", err));
+            }
+
+            function loadStudentStats() {
+                if (!currentStudentId) return;
+
+                fetch(`https://aware-api.onrender.com/api/get_student_stats?student_id=${currentStudentId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        document.getElementById('statTotalSubmissions').innerText = data.total_submissions;
+                        document.getElementById('heroSubmissionsDisplay').innerText = `${data.total_submissions} / 18`;
+
+                        const recentContainer = document.getElementById('recentSubmissionsContainer');
+                        recentContainer.innerHTML = '<h3 style="margin-bottom: 16px;">Recent Submissions</h3>';
+
+                        if (data.recent_evals.length === 0) {
+                            recentContainer.innerHTML += '<p style="color: var(--text-gray); font-size: 14px;">No evaluations submitted yet.</p>';
+                        } else {
+                            data.recent_evals.forEach(evaluation => {
+                                recentContainer.innerHTML += `
                             <div class="recent-item">
                                 <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
                                     <strong>${evaluation.Course_Code}</strong> 
@@ -632,37 +712,35 @@
                                 </div>
                             </div>
                         `;
-                    });
-                }
-            })
-            .catch(err => console.error("Error loading stats:", err));
-        }
+                            });
+                        }
+                    })
+                    .catch(err => console.error("Error loading stats:", err));
+            }
 
-        // Note the port 5001, which matches our Flask server
-        // To test dates manually, you can change this URL to: 'http://127.0.0.1:5000/api/week?test_date=2026-02-15'
-        // Fetch the Dynamic Week and update the Hero Banner
-        const apiUrl = 'https://aware-api.onrender.com/api/week';
+            const apiUrl = 'https://aware-api.onrender.com/api/week';
 
-        fetch(apiUrl)
-            .then(response => response.json())
-            .then(data => {
-                const weekTitle = document.getElementById('heroWeekDisplay');
-                const weekStatus = document.getElementById('heroWeekStatus');
-                
-                if (data.status === "Not Started" || data.status === "Sembreak") {
-                    weekTitle.innerText = data.status;
-                    weekStatus.innerText = "Enjoy your break! No pulse checks due.";
-                } else {
-                    weekTitle.innerText = `Week ${data.week_number} Pulse Check`;
-                    weekStatus.innerText = `Current Status: ${data.status} - Submit before Friday evening`;
-                }
-            })
-            .catch(error => {
-                console.error('Error fetching week:', error);
-                document.getElementById('heroWeekDisplay').innerText = "Week Data Offline";
-                document.getElementById('heroWeekStatus').innerText = "Unable to connect to server.";
-            });
+            fetch(apiUrl)
+                .then(response => response.json())
+                .then(data => {
+                    const weekTitle = document.getElementById('heroWeekDisplay');
+                    const weekStatus = document.getElementById('heroWeekStatus');
 
-    </script>
+                    if (data.status === "Not Started" || data.status === "Sembreak") {
+                        weekTitle.innerText = data.status;
+                        weekStatus.innerText = "Enjoy your break! No pulse checks due.";
+                    } else {
+                        weekTitle.innerText = `Week ${data.week_number} Pulse Check`;
+                        weekStatus.innerText = `Current Status: ${data.status} - Submit before Friday evening`;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching week:', error);
+                    document.getElementById('heroWeekDisplay').innerText = "Week Data Offline";
+                    document.getElementById('heroWeekStatus').innerText = "Unable to connect to server.";
+                });
+
+        </script>
 </body>
+
 </html>

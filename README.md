@@ -106,8 +106,8 @@ Open a terminal and start the Flask API. Keep this terminal open.
 ---
 
 ## 👥 Meet the Team
-* **Escalona** - 
-* **Gestiada** - Analytics
-* **Interno** - Security
-* **Monreal** - Advanced Data Filtering
+* **Escalona** - Data Integrity
+* **Gestiada** - Analytics and Data Analysis
+* **Interno** - Security and UI/UX
+* **Monreal** - Advanced Data Filtering and Analytics
 * **Tamondong** - Environment Setup & Documentation

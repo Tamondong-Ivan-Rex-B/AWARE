@@ -410,7 +410,9 @@
     <script>
         // Track state
         let currentStudentId = null; 
-        
+        //TASK 1 - added
+        let isSubmitting = false;
+        let lastSubmissionKey = "";
         // 1. Score tracking
         let clarityScore = 3;
         let pacingScore = 3;
@@ -482,49 +484,80 @@
 
         // --- Submission to Backend ---
         function submitPulseCheck() {
-            if (!currentStudentId) {
-                alert("Security Error: Please log out and log back in.");
-                return;
-            }
 
-            const sessionId = document.getElementById('topicsSelect').value;
-            if (!sessionId) {
-                alert("Please select a Course and Topic before submitting!");
-                return;
-            }
+       //TASK 1 - SECURITY
 
-            const evaluationData = {
-                student_id: currentStudentId,
-                session_id: sessionId,
-                clarity_score: clarityScore,
-                pacing_score: pacingScore,
-                comprehension_score: comprehensionScore,
-                engagement_score: engagementScore,
-                study_hours: document.getElementById('studyHours') ? document.getElementById('studyHours').value || 0 : 0,
-                comments: document.getElementById('comments') ? document.getElementById('comments').value : ""
-            };
+    // Prevent spam clicks / double submission
+    if (isSubmitting) return;
 
-            // Updated to port 5001
-            fetch('http://localhost:5001/submit_evaluation', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(evaluationData)
-            })
-            .then(response => response.json())
-            .then(data => {
-                if(data.status === "success"){
-                    alert("Pulse Check Submitted Successfully!");
-                    if (document.getElementById('comments')) document.getElementById('comments').value = ""; 
-                    if (document.getElementById('studyHours')) document.getElementById('studyHours').value = ""; 
-                } else {
-                    alert("Error: " + data.message);
-                }
-            })
-            .catch(err => {
-                console.error("Submission Error:", err);
-                alert("Failed to submit. Check the developer console for details.");
-            });
+    const course = document.getElementById('courseSelect').value.trim();
+    const topic = document.getElementById('topicsSelect').value.trim();
+    const hours = document.getElementById('studyHours').value;
+    const comments = document.getElementById('comments').value.trim();
+
+    // EMPTY SUBMISSION CHECK
+    if (!course || !topic) {
+        alert("Please select a course and topic before submitting.");
+        return;
+    }
+
+    // VALIDATION CHECK (study hours)
+    if (hours !== "" && (hours < 0 || hours > 168)) {
+        alert("Invalid study hours.");
+        return;
+    }
+
+    // DUPLICATE SUBMISSION PREVENTION
+    const key = `${currentStudentId}-${topic}`;
+
+    if (lastSubmissionKey === key) {
+        alert("Duplicate submission blocked.");
+        return;
+    }
+
+    // LOCK SUBMISSION
+    isSubmitting = true;
+
+    const evaluationData = {
+        student_id: currentStudentId,
+        session_id: topic,
+        clarity_score: clarityScore,
+        pacing_score: pacingScore,
+        comprehension_score: comprehensionScore,
+        engagement_score: engagementScore,
+        study_hours: hours || 0,
+        comments: comments
+    };
+
+    fetch('http://localhost:5001/submit_evaluation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(evaluationData)
+    })
+    .then(response => response.json())
+    .then(data => {
+
+        // unlock submission
+        isSubmitting = false;
+
+        if (data.status === "success") {
+            lastSubmissionKey = key;
+            alert("Pulse Check Submitted Successfully!");
+            
+            // optional cleanup
+            document.getElementById('comments').value = "";
+            document.getElementById('studyHours').value = "";
+        } else {
+            alert("Error: " + data.message);
         }
+    })
+    .catch(err => {
+        isSubmitting = false;
+        console.error("Submission Error:", err);
+        alert("Failed to submit. Check console.");
+    });
+
+}
 
         // --- Populate Dropdowns ---
         function loadCourses() {

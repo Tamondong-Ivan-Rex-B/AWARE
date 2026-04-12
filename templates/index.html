@@ -639,7 +639,7 @@
         // Note the port 5001, which matches our Flask server
         // To test dates manually, you can change this URL to: 'http://127.0.0.1:5000/api/week?test_date=2026-02-15'
         // Fetch the Dynamic Week and update the Hero Banner
-        const apiUrl = 'http://127.0.0.1:5001/api/week';
+        const apiUrl = 'https://aware-api.onrender.com/api/week';
 
         fetch(apiUrl)
             .then(response => response.json())

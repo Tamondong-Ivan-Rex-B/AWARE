@@ -1,0 +1,8 @@
+DB_HOST=mysql-c9ec3ac-aware-system.b.aivencloud.com
+DB_PORT=20158
+DB_USER=avnadmin
+DB_PASSWORD=AVNS_rwLB221VeS4wZ-6lBlr
+DB_NAME=defaultdb
+.env
+.env.local
+*.env

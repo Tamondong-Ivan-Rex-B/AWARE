@@ -4,6 +4,22 @@
 > A centralized platform bridging the gap between quantitative academic grades, qualitative student well-being, and personal study habits. By shifting from massive, one-time semester surveys to anonymous, weekly "Pulse Checks," the system provides educators with accurate, honest, and actionable class feedback.
 
 ---
+## Changelogs:
+
+* **Cloud Migration & Architecture Update**:
+We successfully migrated the A.W.A.R.E. database architecture from a local XAMPP environment to a fully managed cloud infrastructure. The database is now hosted on Aiven.io, an open-source data platform providing robust cloud MySQL services. The backend Flask API is deployed on Render.com, a unified cloud hosting platform that scales and runs our web services automatically. To manage this remote database securely and efficiently, we utilize DBeaver, an advanced open-source database management tool. This complete architectural shift allows the project to run 100% online, enabling seamless remote access for students and administrators alike.
+
+* **Cloud Integration**: Transitioned from localhost (127.0.0.1) to secure https:// cloud endpoints.
+
+* **API Security & CORS**: Implemented Cross-Origin Resource Sharing (flask-cors) to allow the desktop application to securely communicate with the cloud server.
+
+* **Environment Variables**: Secured database credentials (host, user, password) using environment variables to prevent hardcoding sensitive data into public repositories.
+
+* **Database Schema Synchronization**: Updated the cloud database and established strict Foreign Key constraints (Crow's Foot Entity-Relationship rules) directly in Aiven to ensure data integrity.
+
+* **Standalone Executable**: Compiled the PyQt6 Admin Dashboard into a standalone .exe file using PyInstaller, allowing professors and admins to run the app on any Windows machine without needing Python installed. (Future)
+
+---
 
 ## ✨ Key Features
 * **Anonymous Student Pulse Checks:** Quick, weekly web-based evaluations.
@@ -16,9 +32,9 @@
 
 ## 🛠️ Tech Stack
 * **Frontend (Student Portal):** HTML5, CSS3, Vanilla JavaScript
-* **Desktop App (Admin/Professor Dashboard):** Python, PyQt6, PyQtGraph
-* **Backend Server:** Python, Flask, Flask-CORS
-* **Database & Security:** MySQL, mysql-connector-python, Werkzeug (Password Hashing)
+* **Desktop App (Admin & Professor Dashboard):** Python 3, PyQt6, PyQtGraph, PyInstaller, Requests
+* **Backend Server:** Flask, Flask-CORS, Render.com
+* **Database Management & Security:** MySQL, Aiven.io, mysql-connector-python, DBeaver, Werkzeug
 
 ---
 
@@ -34,17 +50,18 @@ Clone the repository and navigate to the project folder:
 ### 2. Install Dependencies
 Install all required Python libraries using pip:
     
-    pip install flask flask-cors mysql-connector-python werkzeug PyQt6 pyqtgraph requests
+    pip install flask flask-cors mysql-connector-python werkzeug PyQt6 pyqtgraph requests pyinstaller
 
-### 3. Database Setup
-1. Open your MySQL manager (e.g., phpMyAdmin, MySQL Workbench).
-2. Create a new database named `aware_db`.
-3. Import the provided `aware_db.sql` file to create the tables.
-4. Open your terminal and run the password seeding script to secure the dummy accounts:
+<del>### 3. Database Setup
+<del>1. Open your MySQL manager (e.g., phpMyAdmin, MySQL Workbench).
+<del>2. Create a new database named `aware_db`.
+<del>3. Import the provided `aware_db.sql` file to create the tables.
+<del>4. Open your terminal and run the password seeding script to secure the dummy accounts:
     
-    python seed_passwords.py
+<del>    python seed_passwords.py
 
 ---
+
 
 ## 🚀 How to Run the System
 The A.W.A.R.E. system requires the server and the frontend/dashboard to run simultaneously.
@@ -62,15 +79,15 @@ Open a terminal and start the Flask API. Keep this terminal open.
 
 ---
 
-## 📖 System Flow
-1. **Deployment:** The admin starts `server.py` on the local network (or cloud).
-2. **Evaluation Phase:** Students access the web portal (`index.html`) via their phones or laptops, select their current week's topic, and submit an anonymous Pulse Check.
-3. **Data Processing:** The Flask server securely processes the submission and updates the MySQL database in real-time.
-4. **Analysis Phase:** Professors launch the Desktop App (`main.py`) to view the live dashboard. They can use the Analytics tab to visualize engagement drops or confusing topics and adjust their teaching methods accordingly.
+## 📖 New Cloud Workflow
+1. * **Database (Aiven)**: The MySQL database runs 24/7 in the cloud. No local servers are required. Database management is done visually through DBeaver.
+2. * **Server (Render)**: The Flask API is hosted continuously on Render.com. It automatically "wakes up" whenever a student visits the website or an admin logs in.
+3. * **Application**: Administrators simply double-click the AWARE_Dashboard.exe file on their own computers. The desktop app securely fetches and pushes data over the internet.
+4. * **Advantage**: True remote capability. Multiple users can access the web portal and the admin dashboard simultaneously from anywhere.
 
 ---
 
-## 📸 Screenshots
+## 📸 Screenshots (To be updated)
 | Student Web Login Portal |
 |:---:|
 | ![Student Web Portal](static/images/ss%20(19).png) |
@@ -107,7 +124,7 @@ Open a terminal and start the Flask API. Keep this terminal open.
 
 ## 👥 Meet the Team
 * **Escalona** - Data Integrity
-* **Gestiada** - Analytics and Data Analysis
+* **Gestiada** - Visualization and Data Analysis
 * **Interno** - Security and UI/UX
 * **Monreal** - Advanced Data Filtering and Analytics
 * **Tamondong** - Environment Setup & Documentation

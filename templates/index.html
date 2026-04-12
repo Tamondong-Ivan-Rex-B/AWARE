@@ -450,7 +450,7 @@
             if (!email || !password) return;
 
             // Updated to port 5001, targeting /login with exact payload server expects
-            fetch('http://localhost:5001/login', {
+            fetch('https://aware-api.onrender.com/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username: email, password: password, role: 'student' })
@@ -529,7 +529,7 @@
         comments: comments
     };
 
-    fetch('http://localhost:5001/submit_evaluation', {
+    fetch('https://aware-api.onrender.com/submit_evaluation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(evaluationData)
@@ -561,7 +561,7 @@
 
         // --- Populate Dropdowns ---
         function loadCourses() {
-            fetch('http://localhost:5001/api/get_courses')
+            fetch('https://aware-api.onrender.com/api/get_courses')
             .then(response => response.json())
             .then(data => {
                 const courseDropdown = document.getElementById('courseSelect');
@@ -585,7 +585,7 @@
 
             topicDropdown.innerHTML = '<option value="">Loading topics...</option>';
 
-            fetch(`http://localhost:5001/api/get_topics?course=${selectedCourse}`)
+            fetch(`https://aware-api.onrender.com/api/get_topics?course=${selectedCourse}`)
             .then(response => response.json())
             .then(data => {
                 topicDropdown.innerHTML = '<option value="">-- Select the topic --</option>';
@@ -600,7 +600,7 @@
             // Don't try to load if no one is logged in
             if (!currentStudentId) return;
 
-            fetch(`http://localhost:5001/api/get_student_stats?student_id=${currentStudentId}`)
+            fetch(`https://aware-api.onrender.com/api/get_student_stats?student_id=${currentStudentId}`)
             .then(response => response.json())
             .then(data => {
                 // 1. Update the Total Submissions number in the Sidebar

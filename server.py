@@ -371,32 +371,28 @@ def get_grades_vs_evals():
         return jsonify({"status": "error", "message": str(e)}), 500
     finally:
         db.close()
-        
 # ==========================================
-# ADMIN CRUD: PROFESSORS
+# ADMIN CRUD: PROFESSORS (UPDATED)
 # ==========================================
-
 @app.route('/api/admin/professors', methods=['GET', 'POST'])
 def api_professors():
     db = get_db_connection()
     cursor = db.cursor(dictionary=True)
-    
     try:
         if request.method == 'GET':
-            cursor.execute("SELECT Professor_ID, First_Name, Last_Name, Username FROM professor ORDER BY Last_Name")
+            # Added Department
+            cursor.execute("SELECT Professor_ID, First_Name, Last_Name, Username, Department FROM professor ORDER BY Last_Name")
             return jsonify({"status": "success", "data": cursor.fetchall()}), 200
             
         elif request.method == 'POST':
             data = request.json
             hashed_pw = generate_password_hash(data['Password'])
-            
             cursor.execute("""
-                INSERT INTO professor (First_Name, Last_Name, Username, Password) 
-                VALUES (%s, %s, %s, %s)
-            """, (data['First_Name'], data['Last_Name'], data['Username'], hashed_pw))
+                INSERT INTO professor (First_Name, Last_Name, Username, Password, Department) 
+                VALUES (%s, %s, %s, %s, %s)
+            """, (data['First_Name'], data['Last_Name'], data['Username'], hashed_pw, data.get('Department', '')))
             db.commit()
             return jsonify({"status": "success", "message": "Professor added!"}), 201
-
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
     finally:
@@ -406,33 +402,368 @@ def api_professors():
 def api_modify_professor(prof_id):
     db = get_db_connection()
     cursor = db.cursor()
-    
     try:
         if request.method == 'DELETE':
-            # Note: If they are assigned to a class_session, this might fail unless you handle the Foreign Key!
             cursor.execute("DELETE FROM professor WHERE Professor_ID = %s", (prof_id,))
             db.commit()
             return jsonify({"status": "success", "message": "Professor deleted!"}), 200
             
         elif request.method == 'PUT':
             data = request.json
-            
-            # If they typed a new password, hash and update it. Otherwise, leave it alone.
             if data.get('Password') and data['Password'].strip() != "":
                 hashed_pw = generate_password_hash(data['Password'])
                 cursor.execute("""
-                    UPDATE professor SET First_Name=%s, Last_Name=%s, Username=%s, Password=%s 
+                    UPDATE professor SET First_Name=%s, Last_Name=%s, Username=%s, Password=%s, Department=%s 
                     WHERE Professor_ID=%s
-                """, (data['First_Name'], data['Last_Name'], data['Username'], hashed_pw, prof_id))
+                """, (data['First_Name'], data['Last_Name'], data['Username'], hashed_pw, data.get('Department', ''), prof_id))
             else:
                 cursor.execute("""
-                    UPDATE professor SET First_Name=%s, Last_Name=%s, Username=%s 
+                    UPDATE professor SET First_Name=%s, Last_Name=%s, Username=%s, Department=%s 
                     WHERE Professor_ID=%s
-                """, (data['First_Name'], data['Last_Name'], data['Username'], prof_id))
-                
+                """, (data['First_Name'], data['Last_Name'], data['Username'], data.get('Department', ''), prof_id))
             db.commit()
             return jsonify({"status": "success", "message": "Professor updated!"}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        db.close()
 
+# ==========================================
+# ADMIN CRUD: GUARDIANS (NEW)
+# ==========================================
+@app.route('/api/admin/guardians', methods=['GET', 'POST'])
+def api_guardians():
+    db = get_db_connection()
+    cursor = db.cursor(dictionary=True)
+    try:
+        if request.method == 'GET':
+            cursor.execute("SELECT * FROM guardian ORDER BY Last_Name")
+            return jsonify({"status": "success", "data": cursor.fetchall()}), 200
+            
+        elif request.method == 'POST':
+            data = request.json
+            cursor.execute("""
+                INSERT INTO guardian (First_Name, Last_Name, Contact_Number, Email) 
+                VALUES (%s, %s, %s, %s)
+            """, (data['First_Name'], data['Last_Name'], data.get('Contact_Number'), data.get('Email')))
+            db.commit()
+            return jsonify({"status": "success", "message": "Guardian added!"}), 201
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        db.close()
+
+@app.route('/api/admin/guardians/<int:g_id>', methods=['PUT', 'DELETE'])
+def api_modify_guardian(g_id):
+    db = get_db_connection()
+    cursor = db.cursor()
+    try:
+        if request.method == 'DELETE':
+            cursor.execute("DELETE FROM guardian WHERE Guardian_ID = %s", (g_id,))
+            db.commit()
+            return jsonify({"status": "success", "message": "Guardian deleted!"}), 200
+        elif request.method == 'PUT':
+            data = request.json
+            cursor.execute("""
+                UPDATE guardian SET First_Name=%s, Last_Name=%s, Contact_Number=%s, Email=%s 
+                WHERE Guardian_ID=%s
+            """, (data['First_Name'], data['Last_Name'], data.get('Contact_Number'), data.get('Email'), g_id))
+            db.commit()
+            return jsonify({"status": "success", "message": "Guardian updated!"}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        db.close()
+
+# ==========================================
+# ADMIN CRUD: STUDENTS (UPDATED)
+# ==========================================
+@app.route('/api/admin/students', methods=['GET', 'POST'])
+def api_students():
+    db = get_db_connection()
+    cursor = db.cursor(dictionary=True)
+    try:
+        if request.method == 'GET':
+            # Use LEFT JOIN so we can see the Guardian's name, not just the ID!
+            cursor.execute("""
+                SELECT s.Student_ID, s.First_Name, s.Last_Name, s.Username, s.Guardian_ID, 
+                       CONCAT(g.First_Name, ' ', g.Last_Name) AS Guardian_Name
+                FROM student s
+                LEFT JOIN guardian g ON s.Guardian_ID = g.Guardian_ID
+                ORDER BY s.Last_Name
+            """)
+            return jsonify({"status": "success", "data": cursor.fetchall()}), 200
+            
+        elif request.method == 'POST':
+            data = request.json
+            hashed_pw = generate_password_hash(data['Password'])
+            g_id = data.get('Guardian_ID')
+            g_id = None if not g_id else g_id # Handle empty guardian
+
+            cursor.execute("""
+                INSERT INTO student (First_Name, Last_Name, Username, Password, Guardian_ID) 
+                VALUES (%s, %s, %s, %s, %s)
+            """, (data['First_Name'], data['Last_Name'], data['Username'], hashed_pw, g_id))
+            db.commit()
+            return jsonify({"status": "success", "message": "Student added!"}), 201
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        db.close()
+
+@app.route('/api/admin/students/<int:student_id>', methods=['PUT', 'DELETE'])
+def api_modify_student(student_id):
+    db = get_db_connection()
+    cursor = db.cursor()
+    try:
+        if request.method == 'DELETE':
+            cursor.execute("DELETE FROM student WHERE Student_ID = %s", (student_id,))
+            db.commit()
+            return jsonify({"status": "success", "message": "Student deleted!"}), 200
+            
+        elif request.method == 'PUT':
+            data = request.json
+            g_id = data.get('Guardian_ID')
+            g_id = None if not g_id else g_id
+
+            if data.get('Password') and data['Password'].strip() != "":
+                hashed_pw = generate_password_hash(data['Password'])
+                cursor.execute("""
+                    UPDATE student SET First_Name=%s, Last_Name=%s, Username=%s, Password=%s, Guardian_ID=%s
+                    WHERE Student_ID=%s
+                """, (data['First_Name'], data['Last_Name'], data['Username'], hashed_pw, g_id, student_id))
+            else:
+                cursor.execute("""
+                    UPDATE student SET First_Name=%s, Last_Name=%s, Username=%s, Guardian_ID=%s 
+                    WHERE Student_ID=%s
+                """, (data['First_Name'], data['Last_Name'], data['Username'], g_id, student_id))
+            db.commit()
+            return jsonify({"status": "success", "message": "Student updated!"}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        db.close()
+
+# ==========================================
+# ADMIN CRUD: COURSES
+# ==========================================
+@app.route('/api/admin/courses', methods=['GET', 'POST'])
+def api_courses():
+    db = get_db_connection()
+    cursor = db.cursor(dictionary=True)
+    try:
+        if request.method == 'GET':
+            # Assuming your course table has Course_Code and maybe Course_Name. 
+            # If it only has Course_Code, the query will still work fine.
+            cursor.execute("SELECT Course_Code FROM course ORDER BY Course_Code")
+            return jsonify({"status": "success", "data": cursor.fetchall()}), 200
+            
+        elif request.method == 'POST':
+            data = request.json
+            cursor.execute("INSERT INTO course (Course_Code) VALUES (%s)", (data['Course_Code'].upper(),))
+            db.commit()
+            return jsonify({"status": "success", "message": "Course added!"}), 201
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        db.close()
+
+@app.route('/api/admin/courses/<string:course_code>', methods=['DELETE'])
+def api_modify_course(course_code):
+    db = get_db_connection()
+    cursor = db.cursor()
+    try:
+        if request.method == 'DELETE':
+            cursor.execute("DELETE FROM course WHERE Course_Code = %s", (course_code,))
+            db.commit()
+            return jsonify({"status": "success", "message": "Course deleted!"}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        db.close()
+
+# ==========================================
+# ADMIN CRUD: CLASS SESSIONS
+# ==========================================
+@app.route('/api/admin/sessions', methods=['GET', 'POST'])
+def api_sessions():
+    db = get_db_connection()
+    cursor = db.cursor(dictionary=True)
+    try:
+        if request.method == 'GET':
+            # Use JOINs to get the Professor's actual name
+            cursor.execute("""
+                SELECT cs.Session_ID, cs.Course_Code, cs.Professor_ID, 
+                       CONCAT(p.First_Name, ' ', p.Last_Name) AS Professor_Name
+                FROM class_session cs
+                JOIN professor p ON cs.Professor_ID = p.Professor_ID
+                ORDER BY cs.Course_Code
+            """)
+            return jsonify({"status": "success", "data": cursor.fetchall()}), 200
+            
+        elif request.method == 'POST':
+            data = request.json
+            cursor.execute("INSERT INTO class_session (Course_Code, Professor_ID) VALUES (%s, %s)", 
+                           (data['Course_Code'], data['Professor_ID']))
+            db.commit()
+            return jsonify({"status": "success", "message": "Class Session created!"}), 201
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        db.close()
+
+@app.route('/api/admin/sessions/<int:session_id>', methods=['DELETE'])
+def api_modify_session(session_id):
+    db = get_db_connection()
+    cursor = db.cursor()
+    try:
+        cursor.execute("DELETE FROM class_session WHERE Session_ID = %s", (session_id,))
+        db.commit()
+        return jsonify({"status": "success", "message": "Session deleted!"}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": "Cannot delete. Students might be enrolled."}), 500
+    finally:
+        db.close()
+
+# ==========================================
+# ADMIN CRUD: ENROLLMENTS
+# ==========================================
+@app.route('/api/admin/enrollments', methods=['GET', 'POST'])
+def api_enrollments():
+    db = get_db_connection()
+    cursor = db.cursor(dictionary=True)
+    try:
+        if request.method == 'GET':
+            cursor.execute("""
+                SELECT e.Enrollment_ID, e.Student_ID, e.Course_Code, e.Academic_Year, e.Semester, e.Current_Grade,
+                       CONCAT(s.First_Name, ' ', s.Last_Name) AS Student_Name
+                FROM enrollment e
+                JOIN student s ON e.Student_ID = s.Student_ID
+                ORDER BY s.Last_Name
+            """)
+            return jsonify({"status": "success", "data": cursor.fetchall()}), 200
+            
+        elif request.method == 'POST':
+            data = request.json
+            grade = data.get('Current_Grade')
+            grade = grade if grade else None 
+            
+            cursor.execute("""
+                INSERT INTO enrollment (Student_ID, Course_Code, Academic_Year, Semester, Current_Grade) 
+                VALUES (%s, %s, %s, %s, %s)
+            """, (data['Student_ID'], data['Course_Code'], data['Academic_Year'], data['Semester'], grade))
+            db.commit()
+            return jsonify({"status": "success", "message": "Student Enrolled!"}), 201
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        db.close()
+
+@app.route('/api/admin/enrollments/<int:enroll_id>', methods=['DELETE', 'PUT'])
+def api_modify_enrollment(enroll_id):
+    db = get_db_connection()
+    cursor = db.cursor()
+    try:
+        if request.method == 'DELETE':
+            cursor.execute("DELETE FROM enrollment WHERE Enrollment_ID = %s", (enroll_id,))
+            db.commit()
+            return jsonify({"status": "success", "message": "Enrollment deleted!"}), 200
+        elif request.method == 'PUT':
+            data = request.json
+            cursor.execute("""
+                UPDATE enrollment SET Academic_Year=%s, Semester=%s, Current_Grade=%s 
+                WHERE Enrollment_ID=%s
+            """, (data.get('Academic_Year'), data.get('Semester'), data.get('Current_Grade') or None, enroll_id))
+            db.commit()
+            return jsonify({"status": "success", "message": "Enrollment updated!"}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        db.close()
+
+# ==========================================
+# ADMIN CRUD: CLASS SCHEDULES
+# ==========================================
+@app.route('/api/admin/schedules', methods=['GET', 'POST'])
+def api_schedules():
+    db = get_db_connection()
+    cursor = db.cursor(dictionary=True)
+    try:
+        if request.method == 'GET':
+            cursor.execute("""
+                SELECT Schedule_ID, Course_Code, Room_Name, Schedule_Day, 
+                       TIME_FORMAT(Start_Time, '%H:%i') AS Start_Time, 
+                       TIME_FORMAT(End_Time, '%H:%i') AS End_Time
+                FROM class_schedule
+                ORDER BY Schedule_Day, Start_Time
+            """)
+            return jsonify({"status": "success", "data": cursor.fetchall()}), 200
+            
+        elif request.method == 'POST':
+            data = request.json
+            cursor.execute("""
+                INSERT INTO class_schedule (Course_Code, Room_Name, Schedule_Day, Start_Time, End_Time) 
+                VALUES (%s, %s, %s, %s, %s)
+            """, (data['Course_Code'], data['Room_Name'], data['Schedule_Day'], data['Start_Time'], data['End_Time']))
+            db.commit()
+            return jsonify({"status": "success", "message": "Schedule added!"}), 201
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        db.close()
+
+@app.route('/api/admin/schedules/<int:sched_id>', methods=['PUT', 'DELETE'])
+def api_modify_schedule(sched_id):
+    db = get_db_connection()
+    cursor = db.cursor()
+    try:
+        if request.method == 'DELETE':
+            cursor.execute("DELETE FROM class_schedule WHERE Schedule_ID = %s", (sched_id,))
+            db.commit()
+            return jsonify({"status": "success", "message": "Schedule deleted!"}), 200
+        elif request.method == 'PUT':
+            data = request.json
+            cursor.execute("""
+                UPDATE class_schedule SET Course_Code=%s, Room_Name=%s, Schedule_Day=%s, Start_Time=%s, End_Time=%s 
+                WHERE Schedule_ID=%s
+            """, (data['Course_Code'], data['Room_Name'], data['Schedule_Day'], data['Start_Time'], data['End_Time'], sched_id))
+            db.commit()
+            return jsonify({"status": "success", "message": "Schedule updated!"}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        db.close()
+
+# ==========================================
+# ADMIN CRUD: EVALUATIONS (BULLETPROOF QUERY)
+# ==========================================
+@app.route('/api/admin/evaluations', methods=['GET'])
+def api_evaluations():
+    db = get_db_connection()
+    cursor = db.cursor(dictionary=True)
+    try:
+        # We use a super-safe query that grabs whatever columns you actually have, 
+        # avoiding specific column name calls that might crash it!
+        cursor.execute("""
+            SELECT ev.*, CONCAT(s.First_Name, ' ', s.Last_Name) AS Student_Name
+            FROM evaluation ev
+            LEFT JOIN student s ON ev.Student_ID = s.Student_ID
+            ORDER BY ev.Evaluation_ID DESC
+        """)
+        return jsonify({"status": "success", "data": cursor.fetchall()}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        db.close()
+
+@app.route('/api/admin/evaluations/<int:eval_id>', methods=['DELETE'])
+def api_delete_evaluation(eval_id):
+    db = get_db_connection()
+    cursor = db.cursor()
+    try:
+        cursor.execute("DELETE FROM evaluation WHERE Evaluation_ID = %s", (eval_id,))
+        db.commit()
+        return jsonify({"status": "success", "message": "Evaluation deleted!"}), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
     finally:

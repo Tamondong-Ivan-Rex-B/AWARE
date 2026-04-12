@@ -545,7 +545,7 @@ def api_modify_student(student_id):
         db.close()
 
 # ==========================================
-# ADMIN CRUD: COURSES
+# ADMIN CRUD: COURSES (UPDATED WITH PUT)
 # ==========================================
 @app.route('/api/admin/courses', methods=['GET', 'POST'])
 def api_courses():
@@ -553,14 +553,13 @@ def api_courses():
     cursor = db.cursor(dictionary=True)
     try:
         if request.method == 'GET':
-            # Assuming your course table has Course_Code and maybe Course_Name. 
-            # If it only has Course_Code, the query will still work fine.
-            cursor.execute("SELECT Course_Code FROM course ORDER BY Course_Code")
+            cursor.execute("SELECT Course_Code, Course_Title FROM course ORDER BY Course_Code")
             return jsonify({"status": "success", "data": cursor.fetchall()}), 200
             
         elif request.method == 'POST':
             data = request.json
-            cursor.execute("INSERT INTO course (Course_Code) VALUES (%s)", (data['Course_Code'].upper(),))
+            cursor.execute("INSERT INTO course (Course_Code, Course_Title) VALUES (%s, %s)", 
+                           (data['Course_Code'].upper(), data.get('Course_Title', '')))
             db.commit()
             return jsonify({"status": "success", "message": "Course added!"}), 201
     except Exception as e:
@@ -568,7 +567,7 @@ def api_courses():
     finally:
         db.close()
 
-@app.route('/api/admin/courses/<string:course_code>', methods=['DELETE'])
+@app.route('/api/admin/courses/<string:course_code>', methods=['PUT', 'DELETE'])
 def api_modify_course(course_code):
     db = get_db_connection()
     cursor = db.cursor()
@@ -577,6 +576,12 @@ def api_modify_course(course_code):
             cursor.execute("DELETE FROM course WHERE Course_Code = %s", (course_code,))
             db.commit()
             return jsonify({"status": "success", "message": "Course deleted!"}), 200
+        elif request.method == 'PUT':
+            data = request.json
+            cursor.execute("UPDATE course SET Course_Title = %s WHERE Course_Code = %s", 
+                           (data.get('Course_Title', ''), course_code))
+            db.commit()
+            return jsonify({"status": "success", "message": "Course updated!"}), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
     finally:
@@ -735,19 +740,21 @@ def api_modify_schedule(sched_id):
         db.close()
 
 # ==========================================
-# ADMIN CRUD: EVALUATIONS (BULLETPROOF QUERY)
+# ADMIN CRUD: EVALUATIONS (ANONYMOUS & FORMATTED)
 # ==========================================
 @app.route('/api/admin/evaluations', methods=['GET'])
 def api_evaluations():
     db = get_db_connection()
     cursor = db.cursor(dictionary=True)
     try:
-        # We use a super-safe query that grabs whatever columns you actually have, 
-        # avoiding specific column name calls that might crash it!
+        # We only join class_session. Student data is completely ignored for anonymity.
+        # We use DATE_FORMAT to make it look like "Sun, Apr 12, 2026"
         cursor.execute("""
-            SELECT ev.*, CONCAT(s.First_Name, ' ', s.Last_Name) AS Student_Name
+            SELECT ev.*, 
+                   cs.Course_Code,
+                   DATE_FORMAT(ev.Submission_Date, '%a, %b %d, %Y') AS Formatted_Date
             FROM evaluation ev
-            LEFT JOIN student s ON ev.Student_ID = s.Student_ID
+            LEFT JOIN class_session cs ON ev.Session_ID = cs.Session_ID
             ORDER BY ev.Evaluation_ID DESC
         """)
         return jsonify({"status": "success", "data": cursor.fetchall()}), 200

@@ -164,13 +164,92 @@ def submit_evaluation():
                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)"""
         
         # Added submission_date to the end of the values
-        val = (session_id, student_id, clarity_score, pacing_score, comprehension_score, engagement_score, study_hours, comments, submission_date)
-        
+        val = (session_id, student_id, clarity_score, pacing_score,
+       comprehension_score, engagement_score, study_hours,
+       comments, submission_date)
+
         cursor.execute(sql, val)
-        db.commit()
-        
-        return jsonify({"status": "success", "message": "Evaluation submitted successfully!"}), 200
-    
+        db.commit()  # SAVE evaluation first
+
+
+        # -----------------------------
+        # STREAK and FREEZE SYSTEM
+
+        today = submission_date.date()
+
+        cursor.execute("""
+            SELECT streak_count, best_streak, last_study_date,
+                freeze_count, streak_frozen
+            FROM student
+            WHERE Student_ID = %s
+        """, (student_id,))
+
+        student = cursor.fetchone()
+
+        if student:
+            streak = student[0]
+            best = student[1]
+            last_date = student[2]
+            freeze_count = student[3]
+            streak_frozen = student[4]  # (optional, currently unused)
+
+            new_streak = 1
+            used_freeze = False
+            earned_freeze = False
+
+            # STREAK CALCULATION
+            if last_date:
+                diff = (today - last_date).days
+
+                if diff == 1:
+                    new_streak = streak + 1
+
+                elif diff == 0:
+                    new_streak = streak
+
+                else:
+                    # --------------
+                    # freeze usage
+                    if freeze_count > 0:
+                        new_streak = streak
+                        freeze_count -= 1
+                        used_freeze = True
+                    else:
+                        new_streak = 1
+
+            # triggers on 3 day streak only
+            if streak < 3 and new_streak >= 3 and freeze_count == 0:
+                freeze_count = 1
+                earned_freeze = True
+
+            # BEST STREAK UPDATE
+            new_best = max(best or 0, new_streak)
+
+            # DATABASE UPDATE
+            cursor.execute("""
+                UPDATE student
+                SET streak_count = %s,
+                    best_streak = %s,
+                    last_study_date = %s,
+                    freeze_count = %s,
+                    streak_frozen = %s
+                WHERE Student_ID = %s
+            """, (
+                new_streak,
+                new_best,
+                today,
+                freeze_count,
+                1 if used_freeze else 0,
+                student_id
+            ))
+
+            db.commit()
+
+
+        return jsonify({
+            "status": "success",
+            "message": "Evaluation submitted successfully!"
+        }), 200
     except Exception as e:
         db.rollback()
         print(f"Submission Error: {e}")
@@ -292,36 +371,47 @@ def get_student_stats():
         return jsonify({"error": str(e)}), 500
     finally:
         db.close()
-
+#--------------------------
+# Fixed date-range logic gaps and ensured complete return coverage
 def calculate_week(target_date):
     start_date = datetime(2025, 12, 9)
     break_start = datetime(2025, 12, 20)
     break_end = datetime(2026, 1, 5)
     resume_date = datetime(2026, 1, 6)
 
+    # BEFORE SCHOOL STARTS
     if target_date < start_date:
         return {"status": "Not Started", "week_number": 0}
-    
+
+    # SEMBREAK
     if break_start <= target_date <= break_end:
         return {"status": "Sembreak", "week_number": 0}
 
-    if target_date < break_start:
+    # BEFORE BREAK (ACTIVE WEEKS)
+    if start_date <= target_date < break_start:
         diff = (target_date - start_date).days
         week = math.floor(diff / 7) + 1
         return {"status": "Active", "week_number": week}
 
+    # AFTER RESUME (POST-BREAK WEEKS)
     if target_date >= resume_date:
         days_before_break = 11
         days_after_break = (target_date - resume_date).days
         total_active_days = days_before_break + days_after_break
         week = math.floor(total_active_days / 7) + 1
-        
+
         status = "Active"
-        if week == 6: status = "Prelim Exam Week"
-        elif week == 12: status = "Midterm Exam Week"
-        elif week == 18: status = "Final Exam Week"
-        
+        if week == 6:
+            status = "Prelim Exam Week"
+        elif week == 12:
+            status = "Midterm Exam Week"
+        elif week == 18:
+            status = "Final Exam Week"
+
         return {"status": status, "week_number": week}
+
+    # GAP PERIOD (BETWEEN BREAK END AND RESUME DATE SAFETY)
+    return {"status": "Unknown", "week_number": 0}
 
 @app.route('/api/week', methods=['GET'])
 def get_week():

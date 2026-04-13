@@ -287,7 +287,7 @@ INSERT INTO `professor` (`Professor_ID`, `First_Name`, `Last_Name`, `Department`
 --
 -- Table structure for table `student`
 --
-
+- Kir - Foundation of streak sys -
 CREATE TABLE `student` (
   `Student_ID` int(11) NOT NULL,
   `Guardian_ID` int(11) DEFAULT NULL,
@@ -296,9 +296,11 @@ CREATE TABLE `student` (
   `Program` varchar(50) DEFAULT NULL,
   `Year_Level` int(11) DEFAULT NULL,
   `Username` varchar(50) DEFAULT NULL,
-  `Password` varchar(255) DEFAULT NULL
+  `Password` varchar(255) DEFAULT NULL,
+  `streak_count` INT DEFAULT 0,
+  `best_streak` INT DEFAULT 0,
+  `last_study_date` DATE DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
 --
 -- Dumping data for table `student`
 --

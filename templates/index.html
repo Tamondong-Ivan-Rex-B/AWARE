@@ -502,8 +502,34 @@
                 <div class="card" id="recentSubmissionsContainer">
                     <h3 style="margin-bottom: 16px;">Recent Submissions</h3>
                 </div>
-            </div>
 
+                <div class="stats-card">
+                    <h3>Your Stats</h3>
+                    
+                    <div class="stat-item">
+                        <p class="stat-label">Total Submissions</p>
+                        <h4 id="total-submissions" class="stat-value">Loading...</h4>
+                    </div>
+
+                    <hr style="margin: 15px 0; border: 0; border-top: 1px solid #eee;">
+
+                    <div class="stat-item" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <span style="font-weight: bold; color: #ff9800;">🔥 Current Streak</span>
+                        <span id="ui-current-streak" style="font-size: 1.2em; font-weight: bold;">0 Weeks</span>
+                    </div>
+
+                    <div class="stat-item" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <span style="font-weight: bold; color: #2196f3;">❄️ Freezes Available</span>
+                        <span id="ui-freezes" style="font-size: 1.2em; font-weight: bold; color: #2196f3;">0</span>
+                    </div>
+
+                    <div class="stat-item" style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: bold; color: #4caf50;">🏆 Best Streak</span>
+                        <span id="ui-best-streak" style="font-size: 1.2em; font-weight: bold;">0 Weeks</span>
+                    </div>
+                    
+                </div>
+            </div>
         </div>
 
         <script>
@@ -702,10 +728,18 @@
                     .then(data => {
                         document.getElementById('statTotalSubmissions').innerText = data.total_submissions;
                         document.getElementById('heroSubmissionsDisplay').innerText = `${data.total_submissions} / 18`;
+                        document.getElementById('ui-current-streak').textContent = data.streak + " Weeks";
+                        document.getElementById('ui-freezes').textContent = data.freeze;
+                        document.getElementById('ui-best-streak').textContent = data.best_streak + " Weeks";
 
                         const recentContainer = document.getElementById('recentSubmissionsContainer');
                         recentContainer.innerHTML = '<h3 style="margin-bottom: 16px;">Recent Submissions</h3>';
 
+                        if (data.streak === 0) {
+                            document.getElementById('ui-current-streak').style.color = "#888";
+                        } else {
+                            document.getElementById('ui-current-streak').style.color = "#ff9800"; // Orange
+                        }
                         if (data.recent_evals.length === 0) {
                             recentContainer.innerHTML += '<p style="color: var(--text-gray); font-size: 14px;">No evaluations submitted yet.</p>';
                         } else {
@@ -725,7 +759,7 @@
                             });
                         }
                     })
-                    .catch(err => console.error("Error loading stats:", err));
+                    .catch(err => console.error("Error fetching stats:", err));
             }
 
             const apiUrl = 'https://aware-api.onrender.com/api/week';

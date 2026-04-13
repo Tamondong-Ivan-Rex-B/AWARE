@@ -206,13 +206,12 @@ def submit_evaluation():
 
 
         # -----------------------------
-        # STREAK and FREEZE SYSTEM
-
+        # WEEKLY STREAK and FREEZE SYSTEM
+        # -----------------------------
         today = submission_date.date()
 
         cursor.execute("""
-            SELECT streak_count, best_streak, last_study_date,
-                freeze_count, streak_frozen
+            SELECT streak_count, best_streak, last_study_date, freeze_count
             FROM student
             WHERE Student_ID = %s
         """, (student_id,))
@@ -224,41 +223,41 @@ def submit_evaluation():
             best = student[1]
             last_date = student[2]
             freeze_count = student[3]
-            streak_frozen = student[4]  # (optional, currently unused)
 
             new_streak = 1
             used_freeze = False
-            earned_freeze = False
 
-            # STREAK CALCULATION
             if last_date:
-                diff = (today - last_date).days
+                # Compare the WEEK NUMBER instead of the raw days
+                last_week_num = calculate_week(last_date)["week_number"]
+                diff = current_week_num - last_week_num
 
                 if diff == 1:
+                    # Consecutive academic week!
                     new_streak = streak + 1
-
                 elif diff == 0:
+                    # Submitted another course in the same week
                     new_streak = streak
-
                 else:
-                    # --------------
-                    # freeze usage
+                    # Missed a week! Check for freezes.
                     if freeze_count > 0:
-                        new_streak = streak
-                        freeze_count -= 1
+                        new_streak = streak  # Protect the streak
+                        freeze_count -= 1    # Consume 1 freeze
                         used_freeze = True
                     else:
-                        new_streak = 1
+                        new_streak = 1       # Streak lost, reset to 1
+            else:
+                # Very first evaluation ever submitted
+                new_streak = 1
 
-            # triggers on 3 day streak only
+            # Give a free Freeze if they hit a 3-week streak
             if streak < 3 and new_streak >= 3 and freeze_count == 0:
                 freeze_count = 1
-                earned_freeze = True
 
-            # BEST STREAK UPDATE
+            # Update Personal Best
             new_best = max(best or 0, new_streak)
 
-            # DATABASE UPDATE
+            # Save to Database
             cursor.execute("""
                 UPDATE student
                 SET streak_count = %s,

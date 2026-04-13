@@ -345,6 +345,15 @@ def get_student_stats():
         cursor.execute("SELECT COUNT(*) as total FROM evaluation WHERE Student_ID = %s", (student_id,))
         result = cursor.fetchone()
         total_submissions = result['total'] if result else 0
+
+        # NEW: Get streak data
+        #Fixed missing streak data in student stats API response
+        cursor.execute("""
+            SELECT streak_count, freeze_count, best_streak
+            FROM student
+            WHERE Student_ID = %s
+        """, (student_id,))
+        streak_data = cursor.fetchone()
         
         # 2. Get the 3 most recent submissions
         cursor.execute("""
@@ -363,7 +372,10 @@ def get_student_stats():
         
         return jsonify({
             "total_submissions": total_submissions,
-            "recent_evals": recent_evals
+            "recent_evals": recent_evals,
+            "streak": streak_data["streak_count"] if streak_data else 0,
+            "freeze": streak_data["freeze_count"] if streak_data else 0,
+            "best_streak": streak_data["best_streak"] if streak_data else 0
         }), 200
         
     except Exception as e:

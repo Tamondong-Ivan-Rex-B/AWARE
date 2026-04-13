@@ -4,8 +4,32 @@ from PyQt6.QtWidgets import (
     QPushButton, QTableWidget, QTableWidgetItem, QHeaderView, QMessageBox, QTabWidget,
     QFormLayout, QComboBox
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QCursor
+from config import BASE_URL
+
+class FetchDataWorker(QThread):
+    # Signals return a tuple: (tab_index, data_list) so we know where to put the data!
+    finished_success = pyqtSignal(int, list) 
+    finished_error = pyqtSignal(int, str)    
+
+    def __init__(self, tab_index, endpoint):
+        super().__init__()
+        self.tab_index = tab_index
+        self.endpoint = endpoint
+
+    def run(self):
+        try:
+            url = f"{BASE_URL}{self.endpoint}"
+            response = requests.get(url)
+            response.raise_for_status()
+            
+            # Extract the "data" list from your Flask JSON response
+            data = response.json().get("data", [])
+            self.finished_success.emit(self.tab_index, data)
+            
+        except Exception as e:
+            self.finished_error.emit(self.tab_index, str(e))
 
 class ManageDataWindow(QWidget):
     def __init__(self):
@@ -51,6 +75,67 @@ class ManageDataWindow(QWidget):
         QTabBar::tab:selected { background: #6D28D9; color: white; border-color: #6D28D9; }
         """)
 
+        self.tabs = QTabWidget()
+        self.tabs.addTab(self.create_professors_tab(), "Professors")
+        self.tabs.addTab(self.create_students_tab(), "Students")
+        self.tabs.addTab(self.create_courses_tab(), "Courses")
+        
+        # Connect the click event
+        self.tabs.currentChanged.connect(self.on_tab_changed)
+        
+        # Track loaded tabs to prevent re-fetching
+        self.loaded_tabs = {0: False, 1: False, 2: False}
+        
+        # Keep a reference to prevent garbage collection
+        self.worker = None 
+        
+        # Manually trigger the first tab load
+        self.on_tab_changed(0) 
+
+    def on_tab_changed(self, index):
+        if self.loaded_tabs[index]:
+            return # Already loaded, do nothing!
+
+        # Determine which Render endpoint to hit based on the tab
+        endpoints = {
+            0: "/api/admin/professors",
+            1: "/api/admin/students",
+            2: "/api/admin/courses"
+        }
+        
+        endpoint = endpoints.get(index)
+        if not endpoint:
+            return
+
+        # Optional UI Polish: Show a loading message in your table before starting!
+        self.show_loading_state(index)
+
+        # Hire the worker
+        self.worker = FetchDataWorker(index, endpoint)
+        self.worker.finished_success.connect(self.handle_data_loaded)
+        self.worker.finished_error.connect(self.handle_data_error)
+        self.worker.start()
+
+    def handle_data_loaded(self, tab_index, data):
+        # Mark as permanently loaded for this session
+        self.loaded_tabs[tab_index] = True
+        
+        # Inject the data into the correct table
+        if tab_index == 0:
+            self.populate_professors_table(data)
+        elif tab_index == 1:
+            self.populate_students_table(data)
+        elif tab_index == 2:
+            self.populate_courses_table(data)
+
+    def handle_data_error(self, tab_index, error_msg):
+        print(f"Failed to load tab {tab_index}: {error_msg}")
+        # Show an error message to the user in the table
+        
+    def show_loading_state(self, tab_index):
+        # You could clear the existing table and insert one row saying "Loading from cloud..."
+        pass
+    
         main_layout = QVBoxLayout(self)
         
         top_layout = QHBoxLayout()

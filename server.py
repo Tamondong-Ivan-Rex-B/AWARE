@@ -157,16 +157,49 @@ def submit_evaluation():
     try:
         # Determine which date to save (Test Date vs Real Date)
         submission_date = GLOBAL_TEST_DATE if GLOBAL_TEST_DATE else datetime.now()
+        current_week_num = calculate_week(submission_date)["week_number"]
 
-        # UPDATED: We explicitly added Submission_Date to the INSERT statement
+        # ========================================================
+        # 🚨 NEW SECURITY CHECK: 1 Eval per Course per Week 🚨
+        # ========================================================
+        
+        # Step 1: Find out what Course this Session belongs to
+        cursor.execute("SELECT Course_Code FROM class_session WHERE Session_ID = %s", (session_id,))
+        course_data = cursor.fetchone()
+        
+        if course_data:
+            course_code = course_data[0]
+            
+            # Step 2: Grab all past evaluations by this student for this course
+            cursor.execute("""
+                SELECT e.Submission_Date 
+                FROM evaluation e
+                JOIN class_session cs ON e.Session_ID = cs.Session_ID
+                WHERE e.Student_ID = %s AND cs.Course_Code = %s
+            """, (student_id, course_code))
+            
+            past_evals = cursor.fetchall()
+            
+            # Step 3: Check if any of those past evals happened in the current week
+            for eval_record in past_evals:
+                past_date = eval_record[0]
+                if calculate_week(past_date)["week_number"] == current_week_num:
+                    # BLOCK THE SUBMISSION!
+                    return jsonify({
+                        "status": "error", 
+                        "message": f"You already submitted an evaluation for this course in Week {current_week_num}!"
+                    }), 400
+        # ========================================================
+
+        # If it passes the check above, it means they are safe to save!
+        # Save evaluation
         sql = """INSERT INTO evaluation 
                  (Session_ID, Student_ID, Clarity_Score, Pacing_Score, Comprehension_Score, Engagement_Score, Study_Hours, Additional_Comments, Submission_Date) 
                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)"""
         
-        # Added submission_date to the end of the values
         val = (session_id, student_id, clarity_score, pacing_score,
-       comprehension_score, engagement_score, study_hours,
-       comments, submission_date)
+               comprehension_score, engagement_score, study_hours,
+               comments, submission_date)
 
         cursor.execute(sql, val)
         db.commit()  # SAVE evaluation first

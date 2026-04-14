@@ -4,10 +4,43 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QLabel,
     QFrame, QPushButton, QHBoxLayout, QTabWidget, QMessageBox, QComboBox
 )
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal
 from PyQt6.QtGui import QCursor
 from config import BASE_URL
 
+# ======================
+# 1. API WORKER THREAD 
+# ======================
+class AnalyticsWorker(QThread):
+    # Sends back (evaluations_list, grades_list) when successful
+    finished_success = pyqtSignal(list, list) 
+    finished_error = pyqtSignal(str)
+
+    def __init__(self, prof_id):
+        super().__init__()
+        self.prof_id = prof_id
+
+    def run(self):
+        try:
+            params = {'prof_id': self.prof_id} if self.prof_id else {}
+            
+            # Fetch Evaluations
+            res_dash = requests.get(f"{BASE_URL}/api/get_dashboard_data", params=params, timeout=10)
+            res_dash.raise_for_status()
+            evaluations = res_dash.json().get("evaluations", [])
+            
+            # Fetch Grades
+            res_grades = requests.get(f"{BASE_URL}/api/analytics/grades_vs_evals", params=params, timeout=10)
+            res_grades.raise_for_status()
+            grades = res_grades.json().get("data", [])
+            
+            self.finished_success.emit(evaluations, grades)
+        except Exception as e:
+            self.finished_error.emit(str(e))
+
+# ==========================================
+# 2. MAIN ANALYTICS WINDOW
+# ==========================================
 class AnalyticsWindow(QWidget):
     def __init__(self, prof_id=None):
         super().__init__()
@@ -19,6 +52,7 @@ class AnalyticsWindow(QWidget):
 
         self.all_evaluations = []
         self.all_grade_data = []
+        self.worker = None # Initialize worker variable
 
         self.setStyleSheet("""
         #Background { background-color: white; }
@@ -57,7 +91,7 @@ class AnalyticsWindow(QWidget):
 
         main_layout = QVBoxLayout(self)
 
-        # --- NEW: Multi-Filter Layout ---
+        # --- MULTI-FILTER LAYOUT ---
         self.course_filter = QComboBox()
         self.course_filter.addItem("All Courses")
         self.course_filter.currentIndexChanged.connect(self.update_plots)
@@ -84,14 +118,7 @@ class AnalyticsWindow(QWidget):
         title = QLabel("📊 Advanced Diagnostics")
         title.setObjectName("Title")
 
-        # NEW: Global Course Filter
-        self.course_filter = QComboBox()
-        self.course_filter.addItem("All Courses")
-        ##
-        self.course_filter.setFixedWidth(150)
-        self.course_filter.currentIndexChanged.connect(self.update_plots)
-
-        # NEW: Legend / Help Button
+        # Legend / Help Button
         help_btn = QPushButton("ℹ️ Legend / Help")
         help_btn.setStyleSheet("background: #e0f7fa; border: 1px solid #b2ebf2; padding: 5px 15px; border-radius: 5px; color: #00838f; font-weight: bold;")
         help_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
@@ -210,7 +237,7 @@ class AnalyticsWindow(QWidget):
         self.fetch_data()
         self.timer = QTimer()
         self.timer.timeout.connect(self.fetch_data)
-        self.timer.start(10000) # Increased to 10s to prevent stuttering
+        self.timer.start(10000)
 
     def show_help(self):
         """Displays instructions based on the currently active tab."""
@@ -253,57 +280,65 @@ class AnalyticsWindow(QWidget):
         msg.setIcon(QMessageBox.Icon.Information)
         msg.exec()
 
+    # ==========================================
+    # DATA HANDLING LOGIC
+    # ==========================================
     def fetch_data(self):
-        """Fetches data from the API and populates the filter dropdowns."""
-        try:
-            params = {'prof_id': self.prof_id} if self.prof_id else {}
-            res = requests.get(f"{BASE_URL}/api/get_dashboard_data", params=params, timeout=5)
-            if res.status_code == 200:
-                self.all_evaluations = res.json().get("evaluations", [])
-                
-                # Capture current selections to prevent resetting while viewing
-                curr_course = self.course_filter.currentText()
-                curr_prof = self.prof_filter.currentText()
-                curr_week = self.week_filter.currentText()
-                
-                # Find all unique items
-                unique_courses = set([e.get("Course_Code") for e in self.all_evaluations if e.get("Course_Code")])
-                unique_profs = set([e.get("Professor_Name") for e in self.all_evaluations if e.get("Professor_Name")])
-                unique_weeks = set([f"Week {e.get('Week_Number')}" for e in self.all_evaluations if e.get("Week_Number", 0) > 0])
-                
-                # Populate Course Filter
-                self.course_filter.blockSignals(True)
-                self.course_filter.clear()
-                self.course_filter.addItem("All Courses")
-                self.course_filter.addItems(sorted(list(unique_courses)))
-                if self.course_filter.findText(curr_course) >= 0: self.course_filter.setCurrentText(curr_course)
-                self.course_filter.blockSignals(False)
+        """Starts the background worker to fetch data smoothly."""
+        # Prevent starting a new thread if the old one is still downloading!
+        if self.worker is not None and self.worker.isRunning():
+            return
 
-                # Populate Professor Filter
-                self.prof_filter.blockSignals(True)
-                self.prof_filter.clear()
-                self.prof_filter.addItem("All Professors")
-                self.prof_filter.addItems(sorted(list(unique_profs)))
-                if self.prof_filter.findText(curr_prof) >= 0: self.prof_filter.setCurrentText(curr_prof)
-                self.prof_filter.blockSignals(False)
+        self.worker = AnalyticsWorker(self.prof_id)
+        self.worker.finished_success.connect(self.handle_data_loaded)
+        self.worker.finished_error.connect(self.handle_data_error)
+        self.worker.start()
 
-                # Populate Week Filter (Sorted Numerically)
-                self.week_filter.blockSignals(True)
-                self.week_filter.clear()
-                self.week_filter.addItem("All Weeks")
-                sorted_weeks = sorted(list(unique_weeks), key=lambda x: int(x.replace("Week ", "")))
-                self.week_filter.addItems(sorted_weeks)
-                if self.week_filter.findText(curr_week) >= 0: self.week_filter.setCurrentText(curr_week)
-                self.week_filter.blockSignals(False)
+    def handle_data_error(self, error_msg):
+        print(f"Analytics Worker Error: {error_msg}")
 
-            res_grades = requests.get(f"{BASE_URL}/api/analytics/grades_vs_evals", params=params, timeout=5)
-            if res_grades.status_code == 200:
-                self.all_grade_data = res_grades.json().get("data", [])
+    def handle_data_loaded(self, evaluations, grades):
+        """Receives data from the worker and safely updates the UI."""
+        self.all_evaluations = evaluations
+        self.all_grade_data = grades
+        
+        # Capture current selections to prevent resetting while viewing
+        curr_course = self.course_filter.currentText()
+        curr_prof = self.prof_filter.currentText()
+        curr_week = self.week_filter.currentText()
+        
+        # Find all unique items
+        unique_courses = set([e.get("Course_Code") for e in self.all_evaluations if e.get("Course_Code")])
+        unique_profs = set([e.get("Professor_Name") for e in self.all_evaluations if e.get("Professor_Name")])
+        unique_weeks = set([f"Week {e.get('Week_Number')}" for e in self.all_evaluations if e.get("Week_Number", 0) > 0])
+        
+        # Populate Course Filter
+        self.course_filter.blockSignals(True)
+        self.course_filter.clear()
+        self.course_filter.addItem("All Courses")
+        self.course_filter.addItems(sorted(list(unique_courses)))
+        if self.course_filter.findText(curr_course) >= 0: self.course_filter.setCurrentText(curr_course)
+        self.course_filter.blockSignals(False)
 
-            self.update_plots()
+        # Populate Professor Filter
+        self.prof_filter.blockSignals(True)
+        self.prof_filter.clear()
+        self.prof_filter.addItem("All Professors")
+        self.prof_filter.addItems(sorted(list(unique_profs)))
+        if self.prof_filter.findText(curr_prof) >= 0: self.prof_filter.setCurrentText(curr_prof)
+        self.prof_filter.blockSignals(False)
 
-        except Exception as e:
-            print("Analytics Fetch Error:", e)
+        # Populate Week Filter (Sorted Numerically)
+        self.week_filter.blockSignals(True)
+        self.week_filter.clear()
+        self.week_filter.addItem("All Weeks")
+        sorted_weeks = sorted(list(unique_weeks), key=lambda x: int(x.replace("Week ", "")))
+        self.week_filter.addItems(sorted_weeks)
+        if self.week_filter.findText(curr_week) >= 0: self.week_filter.setCurrentText(curr_week)
+        self.week_filter.blockSignals(False)
+
+        # Push new data into the plots
+        self.update_plots()
 
     def update_plots(self):
         """Filters the data and redraws all 6 graphs."""
@@ -325,7 +360,6 @@ class AnalyticsWindow(QWidget):
             filtered_evals.append(e)
 
         # 2. Filter the Grades (Used for Tab 1: Outcomes)
-        # We find out which courses the selected professor teaches, and only show grades for those courses.
         allowed_courses_for_prof = set()
         if selected_prof != "All Professors":
             allowed_courses_for_prof = set([e.get("Course_Code") for e in self.all_evaluations if e.get("Professor_Name") == selected_prof])
@@ -424,12 +458,24 @@ class AnalyticsWindow(QWidget):
         # 5. ENGAGEMENT TRENDS (Line)
         # ---------------------------------------------------------
         self.line_graph.clear()
-        chronological_evals = list(reversed(filtered_evals))
-        engagement = [e.get("Engagement_Score", 0) for e in chronological_evals]
-        if engagement:
-            entries = list(range(1, len(engagement) + 1))
-            self.line_graph.plot(entries, engagement, pen=pg.mkPen(color="#F6C85F", width=4), symbol='o', symbolBrush="#F6C85F")
-            self.line_graph.getAxis('bottom').setTicks([list(zip(entries, [f"Wk {i}" for i in entries]))])
+        week_eng = {}
+        
+        # Group engagement scores by their ACTUAL week number
+        for e in filtered_evals:
+            w = e.get("Week_Number", 0)
+            eng_val = float(e.get("Engagement_Score", 0))
+            if w > 0 and eng_val > 0:
+                if w not in week_eng: week_eng[w] = []
+                week_eng[w].append(eng_val)
+
+        if week_eng:
+            # Sort the actual weeks (e.g., Week 1, Week 13, Week 16)
+            sorted_weeks = sorted(list(week_eng.keys()))
+            # Calculate the average engagement for each of those weeks
+            avg_eng = [sum(week_eng[w])/len(week_eng[w]) for w in sorted_weeks]
+
+            self.line_graph.plot(sorted_weeks, avg_eng, pen=pg.mkPen(color="#F6C85F", width=4), symbol='o', symbolBrush="#F6C85F")
+            self.line_graph.getAxis('bottom').setTicks([list(zip(sorted_weeks, [f"Wk {w}" for w in sorted_weeks]))])
 
         # ---------------------------------------------------------
         # 6. CLARITY OVERVIEW (Bar)

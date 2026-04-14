@@ -13,10 +13,7 @@ app = Flask(__name__)
 CORS(app)
 
 # --- GLOBAL TIME MACHINE FOR TESTING ---
-# Change this date to test different weeks. 
-# Set to None when you want to use Real Time:
 GLOBAL_TEST_DATE = None
-#GLOBAL_TEST_DATE = datetime(2026, 3, 26)
 
 # --- Database Connection ---
 def get_db_connection():
@@ -35,7 +32,7 @@ def login():
     data = request.json
     username = data.get("username", "").strip()
     password = data.get("password", "").strip()
-    role = data.get("role", "professor") # Default to professor
+    role = data.get("role", "professor")
 
     if not username or not password:
         return jsonify({"status": "error", "message": "Username and password are required."}), 400
@@ -46,11 +43,9 @@ def login():
 
     cursor = db.cursor(dictionary=True)
     try:
-        # NEW: Database-driven Admin Login
         if role == "admin":
             cursor.execute("SELECT * FROM admin WHERE Username = %s", (username,))
             user = cursor.fetchone()
-            
             if user and check_password_hash(user["Password"], password):
                 return jsonify({
                     "status": "success", 
@@ -78,7 +73,7 @@ def login():
                     }
                 }), 200
 
-        else:  # default: student
+        else:  
             cursor.execute("SELECT * FROM student WHERE Username = %s", (username,))
             user = cursor.fetchone()
             if user and check_password_hash(user["Password"], password):
@@ -105,13 +100,10 @@ def login():
 @app.route("/api/get_courses", methods=["GET"])
 def get_courses():
     db = get_db_connection()
-    if not db:
-        return jsonify({"error": "Database connection failed."}), 500
     cursor = db.cursor(dictionary=True)
     try:
         cursor.execute("SELECT Course_Code, Course_Title FROM course")
-        courses = cursor.fetchall()
-        return jsonify(courses), 200
+        return jsonify(cursor.fetchall()), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     finally:
@@ -121,13 +113,10 @@ def get_courses():
 def get_topics():
     course_code = request.args.get('course')
     db = get_db_connection()
-    if not db:
-        return jsonify({"error": "Database connection failed."}), 500
     cursor = db.cursor(dictionary=True)
     try:
         cursor.execute("SELECT Session_ID, Topic FROM class_session WHERE Course_Code = %s", (course_code,))
-        topics = cursor.fetchall()
-        return jsonify(topics), 200
+        return jsonify(cursor.fetchall()), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     finally:
@@ -137,8 +126,6 @@ def get_topics():
 @app.route("/submit_evaluation", methods=["POST"])
 def submit_evaluation():
     data = request.json
-    
-    # Extract values
     student_id = data.get("student_id")
     session_id = data.get("session_id")
     clarity_score = data.get("clarity_score")
@@ -146,34 +133,21 @@ def submit_evaluation():
     comprehension_score = data.get("comprehension_score")
     engagement_score = data.get("engagement_score")
     
-    # Handle optional fields (default to 0 or empty string if None/missing)
     study_hours = data.get("study_hours")
-    if not study_hours or study_hours == "":
-        study_hours = 0
+    if not study_hours or study_hours == "": study_hours = 0
     comments = data.get("comments", "")
 
     db = get_db_connection()
-    if not db:
-        return jsonify({"status": "error", "message": "Database connection failed."}), 500
-
     cursor = db.cursor()
     try:
-        # Determine which date to save (Test Date vs Real Date)
         submission_date = GLOBAL_TEST_DATE if GLOBAL_TEST_DATE else datetime.now()
         current_week_num = calculate_week(submission_date)["week_number"]
-
-        # ========================================================
-        # 🚨 NEW SECURITY CHECK: 1 Eval per Course per Week 🚨
-        # ========================================================
         
-        # Step 1: Find out what Course this Session belongs to
         cursor.execute("SELECT Course_Code FROM class_session WHERE Session_ID = %s", (session_id,))
         course_data = cursor.fetchone()
         
         if course_data:
             course_code = course_data[0]
-            
-            # Step 2: Grab all past evaluations by this student for this course
             cursor.execute("""
                 SELECT e.Submission_Date 
                 FROM evaluation e
@@ -182,154 +156,76 @@ def submit_evaluation():
             """, (student_id, course_code))
             
             past_evals = cursor.fetchall()
-            
-            # Step 3: Check if any of those past evals happened in the current week
             for eval_record in past_evals:
-                past_date = eval_record[0]
-                if calculate_week(past_date)["week_number"] == current_week_num:
-                    # BLOCK THE SUBMISSION!
-                    return jsonify({
-                        "status": "error", 
-                        "message": f"You already submitted an evaluation for this course in Week {current_week_num}!"
-                    }), 400
-        # ========================================================
+                if calculate_week(eval_record[0])["week_number"] == current_week_num:
+                    return jsonify({"status": "error", "message": f"You already submitted an evaluation for this course in Week {current_week_num}!"}), 400
 
-        # If it passes the check above, it means they are safe to save!
-        # Save evaluation
         sql = """INSERT INTO evaluation 
                  (Session_ID, Student_ID, Clarity_Score, Pacing_Score, Comprehension_Score, Engagement_Score, Study_Hours, Additional_Comments, Submission_Date) 
                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)"""
-        
-        val = (session_id, student_id, clarity_score, pacing_score,
-               comprehension_score, engagement_score, study_hours,
-               comments, submission_date)
-
+        val = (session_id, student_id, clarity_score, pacing_score, comprehension_score, engagement_score, study_hours, comments, submission_date)
         cursor.execute(sql, val)
-        db.commit()  # SAVE evaluation first
+        db.commit()
 
-
-        # -----------------------------
-        # WEEKLY STREAK and FREEZE SYSTEM
-        # -----------------------------
+        # Streak System
         today = submission_date.date()
-
-        cursor.execute("""
-            SELECT streak_count, best_streak, last_study_date, freeze_count
-            FROM student
-            WHERE Student_ID = %s
-        """, (student_id,))
-
+        cursor.execute("SELECT streak_count, best_streak, last_study_date, freeze_count FROM student WHERE Student_ID = %s", (student_id,))
         student = cursor.fetchone()
 
         if student:
-            streak = student[0]
-            best = student[1]
-            last_date = student[2]
-            freeze_count = student[3]
-
+            streak, best, last_date, freeze_count = student
             new_streak = 1
             used_freeze = False
 
             if last_date:
-                # Compare the WEEK NUMBER instead of the raw days
-                last_week_num = calculate_week(last_date)["week_number"]
-                diff = current_week_num - last_week_num
-
-                if diff == 1:
-                    # Consecutive academic week!
-                    new_streak = streak + 1
-                elif diff == 0:
-                    # Submitted another course in the same week
-                    new_streak = streak
+                diff = current_week_num - calculate_week(last_date)["week_number"]
+                if diff == 1: new_streak = streak + 1
+                elif diff == 0: new_streak = streak
                 else:
-                    # Missed a week! Check for freezes.
                     if freeze_count > 0:
-                        new_streak = streak  # Protect the streak
-                        freeze_count -= 1    # Consume 1 freeze
+                        new_streak = streak
+                        freeze_count -= 1
                         used_freeze = True
-                    else:
-                        new_streak = 1       # Streak lost, reset to 1
+                    else: new_streak = 1
             else:
-                # Very first evaluation ever submitted
                 new_streak = 1
 
-            # Give a free Freeze if they hit a 3-week streak
             if streak < 3 and new_streak >= 3 and freeze_count == 0:
                 freeze_count = 1
 
-            # Update Personal Best
             new_best = max(best or 0, new_streak)
-
-            # Save to Database
             cursor.execute("""
-                UPDATE student
-                SET streak_count = %s,
-                    best_streak = %s,
-                    last_study_date = %s,
-                    freeze_count = %s,
-                    streak_frozen = %s
+                UPDATE student SET streak_count = %s, best_streak = %s, last_study_date = %s, freeze_count = %s, streak_frozen = %s
                 WHERE Student_ID = %s
-            """, (
-                new_streak,
-                new_best,
-                today,
-                freeze_count,
-                1 if used_freeze else 0,
-                student_id
-            ))
-
+            """, (new_streak, new_best, today, freeze_count, 1 if used_freeze else 0, student_id))
             db.commit()
 
-
-        return jsonify({
-            "status": "success",
-            "message": "Evaluation submitted successfully!"
-        }), 200
+        return jsonify({"status": "success", "message": "Evaluation submitted successfully!"}), 200
     except Exception as e:
         db.rollback()
-        print(f"Submission Error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
     finally:
         db.close()
 
-# --- Dashboard Data Route (For Admin/Professor PyQt App) ---
+# --- Dashboard Data Route ---
 @app.route("/api/get_dashboard_data", methods=["GET"])
 def get_dashboard_data():
-    prof_id = request.args.get('prof_id') # NEW: Capture the ID
-    
+    prof_id = request.args.get('prof_id') 
     db = get_db_connection()
-    if not db:
-        return jsonify({"status": "error", "message": "Database connection failed."}), 500
-
     cursor = db.cursor(dictionary=True)
     try:
-        # Setup dynamic SQL filtering
         where_clause = "WHERE cs.Professor_ID = %s" if prof_id else ""
         params = (prof_id,) if prof_id else ()
 
-        # UPDATED: Added JOIN and WHERE clause to averages
         cursor.execute(f"""
-            SELECT 
-                AVG(e.Pacing_Score) AS avg_pacing,
-                AVG(e.Comprehension_Score) AS avg_comp
-            FROM evaluation e
-            JOIN class_session cs ON e.Session_ID = cs.Session_ID
-            {where_clause}
+            SELECT AVG(e.Pacing_Score) AS avg_pacing, AVG(e.Comprehension_Score) AS avg_comp
+            FROM evaluation e JOIN class_session cs ON e.Session_ID = cs.Session_ID {where_clause}
         """, params)
         averages = cursor.fetchone()
 
-        # UPDATED: Added {where_clause} and params to the main query
         cursor.execute(f"""
-            SELECT 
-                cs.Course_Code,
-                cs.Topic,
-                e.Clarity_Score,
-                e.Pacing_Score,
-                e.Comprehension_Score,
-                e.Engagement_Score,
-                e.Study_Hours,
-                e.Additional_Comments AS Comments, 
-                e.Submission_Date,
+            SELECT cs.Course_Code, cs.Topic, e.Clarity_Score, e.Pacing_Score, e.Comprehension_Score,
+                e.Engagement_Score, e.Study_Hours, e.Additional_Comments AS Comments, e.Submission_Date,
                 CONCAT(p.First_Name, ' ', p.Last_Name) AS Professor_Name,
                 CONCAT(s.First_Name, ' ', s.Last_Name) AS Student_Name
             FROM evaluation e
@@ -337,71 +233,44 @@ def get_dashboard_data():
             JOIN course c ON cs.Course_Code = c.Course_Code
             JOIN professor p ON cs.Professor_ID = p.Professor_ID 
             JOIN student s ON e.Student_ID = s.Student_ID
-            {where_clause}
-            ORDER BY e.Evaluation_ID DESC
+            {where_clause} ORDER BY e.Evaluation_ID DESC
         """, params)
         evaluations = cursor.fetchall()
 
-        # NEW LOGIC: Calculate the week for every single evaluation
         for ev in evaluations:
             sub_date = ev.get("Submission_Date")
             if sub_date:
                 week_info = calculate_week(sub_date)
                 ev["Week_Status"] = week_info["status"]
                 ev["Week_Number"] = week_info["week_number"]
-                # Convert the datetime object to a string so it doesn't break JSON
                 ev["Submission_Date"] = sub_date.strftime("%Y-%m-%d %H:%M") 
             else:
                 ev["Week_Status"] = "Old Data"
                 ev["Week_Number"] = 0
 
         return jsonify({"averages": averages, "evaluations": evaluations}), 200
-
     except Exception as e:
-        print(f"Dashboard Data Error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
     finally:
         db.close()
 
-# --- Student Personal Stats Route ---
+# --- Student Stats Route ---
 @app.route("/api/get_student_stats", methods=["GET"])
 def get_student_stats():
     student_id = request.args.get('student_id')
-    if not student_id:
-        return jsonify({"error": "Missing student ID"}), 400
-        
     db = get_db_connection()
-    if not db:
-        return jsonify({"error": "Database connection failed"}), 500
-        
     cursor = db.cursor(dictionary=True)
     try:
-        # 1. Get total number of submissions for this student
         cursor.execute("SELECT COUNT(*) as total FROM evaluation WHERE Student_ID = %s", (student_id,))
-        result = cursor.fetchone()
-        total_submissions = result['total'] if result else 0
+        total_submissions = cursor.fetchone()['total']
 
-        # NEW: Get streak data
-        #Fixed missing streak data in student stats API response
-        cursor.execute("""
-            SELECT streak_count, freeze_count, best_streak
-            FROM student
-            WHERE Student_ID = %s
-        """, (student_id,))
+        cursor.execute("SELECT streak_count, freeze_count, best_streak FROM student WHERE Student_ID = %s", (student_id,))
         streak_data = cursor.fetchone()
         
-        # 2. Get the 3 most recent submissions
         cursor.execute("""
-            SELECT 
-                cs.Course_Code, 
-                cs.Topic, 
-                e.Comprehension_Score, 
-                e.Engagement_Score 
-            FROM evaluation e
-            JOIN class_session cs ON e.Session_ID = cs.Session_ID
-            WHERE e.Student_ID = %s
-            ORDER BY e.Evaluation_ID DESC
-            LIMIT 3
+            SELECT cs.Course_Code, cs.Topic, e.Comprehension_Score, e.Engagement_Score 
+            FROM evaluation e JOIN class_session cs ON e.Session_ID = cs.Session_ID
+            WHERE e.Student_ID = %s ORDER BY e.Evaluation_ID DESC LIMIT 3
         """, (student_id,))
         recent_evals = cursor.fetchall()
         
@@ -412,106 +281,63 @@ def get_student_stats():
             "freeze": streak_data["freeze_count"] if streak_data else 0,
             "best_streak": streak_data["best_streak"] if streak_data else 0
         }), 200
-        
     except Exception as e:
-        print(f"Stats Fetch Error: {e}")
         return jsonify({"error": str(e)}), 500
     finally:
         db.close()
-#--------------------------
-# Fixed date-range logic gaps and ensured complete return coverage
+
+# --- Date Calculation ---
 def calculate_week(target_date):
     start_date = datetime(2025, 12, 9)
     break_start = datetime(2025, 12, 20)
     break_end = datetime(2026, 1, 5)
     resume_date = datetime(2026, 1, 6)
 
-    # BEFORE SCHOOL STARTS
-    if target_date < start_date:
-        return {"status": "Not Started", "week_number": 0}
-
-    # SEMBREAK
-    if break_start <= target_date <= break_end:
-        return {"status": "Sembreak", "week_number": 0}
-
-    # BEFORE BREAK (ACTIVE WEEKS)
+    if target_date < start_date: return {"status": "Not Started", "week_number": 0}
+    if break_start <= target_date <= break_end: return {"status": "Sembreak", "week_number": 0}
     if start_date <= target_date < break_start:
-        diff = (target_date - start_date).days
-        week = math.floor(diff / 7) + 1
+        week = math.floor((target_date - start_date).days / 7) + 1
         return {"status": "Active", "week_number": week}
-
-    # AFTER RESUME (POST-BREAK WEEKS)
     if target_date >= resume_date:
-        days_before_break = 11
-        days_after_break = (target_date - resume_date).days
-        total_active_days = days_before_break + days_after_break
-        week = math.floor(total_active_days / 7) + 1
-
-        status = "Active"
-        if week == 6:
-            status = "Prelim Exam Week"
-        elif week == 12:
-            status = "Midterm Exam Week"
-        elif week == 18:
-            status = "Final Exam Week"
-
+        week = math.floor((11 + (target_date - resume_date).days) / 7) + 1
+        status = "Prelim Exam Week" if week == 6 else "Midterm Exam Week" if week == 12 else "Final Exam Week" if week == 18 else "Active"
         return {"status": status, "week_number": week}
-
-    # GAP PERIOD (BETWEEN BREAK END AND RESUME DATE SAFETY)
     return {"status": "Unknown", "week_number": 0}
 
 @app.route('/api/week', methods=['GET'])
 def get_week():
-    # Check if a test_date was provided in the URL
     test_date_str = request.args.get('test_date')
-    
     if test_date_str:
-        try:
-            target_date = datetime.strptime(test_date_str, '%Y-%m-%d')
-        except ValueError:
-            return jsonify({"error": "Invalid date format. Use YYYY-MM-DD"}), 400
-    else:
-        target_date = GLOBAL_TEST_DATE if GLOBAL_TEST_DATE else datetime.now()
-
-    result = calculate_week(target_date)
-    return jsonify(result)
+        try: target_date = datetime.strptime(test_date_str, '%Y-%m-%d')
+        except ValueError: return jsonify({"error": "Invalid date format"}), 400
+    else: target_date = GLOBAL_TEST_DATE if GLOBAL_TEST_DATE else datetime.now()
+    return jsonify(calculate_week(target_date))
 
 @app.route("/api/analytics/grades_vs_evals", methods=["GET"])
 def get_grades_vs_evals():
-    prof_id = request.args.get('prof_id') # NEW: Capture the ID
-    
+    prof_id = request.args.get('prof_id') 
     db = get_db_connection()
-    if not db:
-        return jsonify({"status": "error", "message": "Database connection failed."}), 500
-
     cursor = db.cursor(dictionary=True)
     try:
         where_clause = "WHERE cs.Professor_ID = %s" if prof_id else ""
         params = (prof_id,) if prof_id else ()
-
         cursor.execute(f"""
-            SELECT 
-                CONCAT(s.First_Name, ' ', s.Last_Name) AS Student_Name,
-                en.Course_Code,
-                en.Current_Grade,
-                AVG(ev.Comprehension_Score) AS Avg_Comprehension,
-                SUM(ev.Study_Hours) AS Total_Study_Hours
+            SELECT CONCAT(s.First_Name, ' ', s.Last_Name) AS Student_Name, en.Course_Code, en.Current_Grade,
+                AVG(ev.Comprehension_Score) AS Avg_Comprehension, SUM(ev.Study_Hours) AS Total_Study_Hours
             FROM enrollment en
             JOIN student s ON en.Student_ID = s.Student_ID
             JOIN class_session cs ON en.Course_Code = cs.Course_Code
             JOIN evaluation ev ON cs.Session_ID = ev.Session_ID AND en.Student_ID = ev.Student_ID
-            {where_clause}
-            GROUP BY en.Student_ID, en.Course_Code, en.Current_Grade
+            {where_clause} GROUP BY en.Student_ID, en.Course_Code, en.Current_Grade
         """, params)
-        data = cursor.fetchall()
-        return jsonify({"status": "success", "data": data}), 200
+        return jsonify({"status": "success", "data": cursor.fetchall()}), 200
     except Exception as e:
-        print(f"Analytics Data Error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
     finally:
         db.close()
+
 # ==========================================
-# ADMIN CRUD: PROFESSORS (UPDATED)
+# ADMIN CRUD: PROFESSORS
 # ==========================================
 @app.route('/api/admin/professors', methods=['GET', 'POST'])
 def api_professors():
@@ -519,10 +345,8 @@ def api_professors():
     cursor = db.cursor(dictionary=True)
     try:
         if request.method == 'GET':
-            # Added Department
             cursor.execute("SELECT Professor_ID, First_Name, Last_Name, Username, Department FROM professor ORDER BY Last_Name")
             return jsonify({"status": "success", "data": cursor.fetchall()}), 200
-            
         elif request.method == 'POST':
             data = request.json
             hashed_pw = generate_password_hash(data['Password'])
@@ -546,20 +370,14 @@ def api_modify_professor(prof_id):
             cursor.execute("DELETE FROM professor WHERE Professor_ID = %s", (prof_id,))
             db.commit()
             return jsonify({"status": "success", "message": "Professor deleted!"}), 200
-            
         elif request.method == 'PUT':
             data = request.json
             if data.get('Password') and data['Password'].strip() != "":
-                hashed_pw = generate_password_hash(data['Password'])
-                cursor.execute("""
-                    UPDATE professor SET First_Name=%s, Last_Name=%s, Username=%s, Password=%s, Department=%s 
-                    WHERE Professor_ID=%s
-                """, (data['First_Name'], data['Last_Name'], data['Username'], hashed_pw, data.get('Department', ''), prof_id))
+                cursor.execute("UPDATE professor SET First_Name=%s, Last_Name=%s, Username=%s, Password=%s, Department=%s WHERE Professor_ID=%s",
+                               (data['First_Name'], data['Last_Name'], data['Username'], generate_password_hash(data['Password']), data.get('Department', ''), prof_id))
             else:
-                cursor.execute("""
-                    UPDATE professor SET First_Name=%s, Last_Name=%s, Username=%s, Department=%s 
-                    WHERE Professor_ID=%s
-                """, (data['First_Name'], data['Last_Name'], data['Username'], data.get('Department', ''), prof_id))
+                cursor.execute("UPDATE professor SET First_Name=%s, Last_Name=%s, Username=%s, Department=%s WHERE Professor_ID=%s",
+                               (data['First_Name'], data['Last_Name'], data['Username'], data.get('Department', ''), prof_id))
             db.commit()
             return jsonify({"status": "success", "message": "Professor updated!"}), 200
     except Exception as e:
@@ -568,7 +386,7 @@ def api_modify_professor(prof_id):
         db.close()
 
 # ==========================================
-# ADMIN CRUD: GUARDIANS (NEW)
+# ADMIN CRUD: GUARDIANS
 # ==========================================
 @app.route('/api/admin/guardians', methods=['GET', 'POST'])
 def api_guardians():
@@ -578,13 +396,10 @@ def api_guardians():
         if request.method == 'GET':
             cursor.execute("SELECT * FROM guardian ORDER BY Last_Name")
             return jsonify({"status": "success", "data": cursor.fetchall()}), 200
-            
         elif request.method == 'POST':
             data = request.json
-            cursor.execute("""
-                INSERT INTO guardian (First_Name, Last_Name, Contact_Number, Email) 
-                VALUES (%s, %s, %s, %s)
-            """, (data['First_Name'], data['Last_Name'], data.get('Contact_Number'), data.get('Email')))
+            cursor.execute("INSERT INTO guardian (First_Name, Last_Name, Contact_Number, Email) VALUES (%s, %s, %s, %s)",
+                           (data['First_Name'], data['Last_Name'], data.get('Contact_Number'), data.get('Email')))
             db.commit()
             return jsonify({"status": "success", "message": "Guardian added!"}), 201
     except Exception as e:
@@ -603,10 +418,8 @@ def api_modify_guardian(g_id):
             return jsonify({"status": "success", "message": "Guardian deleted!"}), 200
         elif request.method == 'PUT':
             data = request.json
-            cursor.execute("""
-                UPDATE guardian SET First_Name=%s, Last_Name=%s, Contact_Number=%s, Email=%s 
-                WHERE Guardian_ID=%s
-            """, (data['First_Name'], data['Last_Name'], data.get('Contact_Number'), data.get('Email'), g_id))
+            cursor.execute("UPDATE guardian SET First_Name=%s, Last_Name=%s, Contact_Number=%s, Email=%s WHERE Guardian_ID=%s",
+                           (data['First_Name'], data['Last_Name'], data.get('Contact_Number'), data.get('Email'), g_id))
             db.commit()
             return jsonify({"status": "success", "message": "Guardian updated!"}), 200
     except Exception as e:
@@ -615,7 +428,7 @@ def api_modify_guardian(g_id):
         db.close()
 
 # ==========================================
-# ADMIN CRUD: STUDENTS (UPDATED)
+# ADMIN CRUD: STUDENTS
 # ==========================================
 @app.route('/api/admin/students', methods=['GET', 'POST'])
 def api_students():
@@ -623,26 +436,17 @@ def api_students():
     cursor = db.cursor(dictionary=True)
     try:
         if request.method == 'GET':
-            # Use LEFT JOIN so we can see the Guardian's name, not just the ID!
             cursor.execute("""
                 SELECT s.Student_ID, s.First_Name, s.Last_Name, s.Username, s.Guardian_ID, 
                        CONCAT(g.First_Name, ' ', g.Last_Name) AS Guardian_Name
-                FROM student s
-                LEFT JOIN guardian g ON s.Guardian_ID = g.Guardian_ID
-                ORDER BY s.Last_Name
+                FROM student s LEFT JOIN guardian g ON s.Guardian_ID = g.Guardian_ID ORDER BY s.Last_Name
             """)
             return jsonify({"status": "success", "data": cursor.fetchall()}), 200
-            
         elif request.method == 'POST':
             data = request.json
-            hashed_pw = generate_password_hash(data['Password'])
-            g_id = data.get('Guardian_ID')
-            g_id = None if not g_id else g_id # Handle empty guardian
-
-            cursor.execute("""
-                INSERT INTO student (First_Name, Last_Name, Username, Password, Guardian_ID) 
-                VALUES (%s, %s, %s, %s, %s)
-            """, (data['First_Name'], data['Last_Name'], data['Username'], hashed_pw, g_id))
+            g_id = data.get('Guardian_ID') or None
+            cursor.execute("INSERT INTO student (First_Name, Last_Name, Username, Password, Guardian_ID) VALUES (%s, %s, %s, %s, %s)",
+                           (data['First_Name'], data['Last_Name'], data['Username'], generate_password_hash(data['Password']), g_id))
             db.commit()
             return jsonify({"status": "success", "message": "Student added!"}), 201
     except Exception as e:
@@ -659,23 +463,15 @@ def api_modify_student(student_id):
             cursor.execute("DELETE FROM student WHERE Student_ID = %s", (student_id,))
             db.commit()
             return jsonify({"status": "success", "message": "Student deleted!"}), 200
-            
         elif request.method == 'PUT':
             data = request.json
-            g_id = data.get('Guardian_ID')
-            g_id = None if not g_id else g_id
-
+            g_id = data.get('Guardian_ID') or None
             if data.get('Password') and data['Password'].strip() != "":
-                hashed_pw = generate_password_hash(data['Password'])
-                cursor.execute("""
-                    UPDATE student SET First_Name=%s, Last_Name=%s, Username=%s, Password=%s, Guardian_ID=%s
-                    WHERE Student_ID=%s
-                """, (data['First_Name'], data['Last_Name'], data['Username'], hashed_pw, g_id, student_id))
+                cursor.execute("UPDATE student SET First_Name=%s, Last_Name=%s, Username=%s, Password=%s, Guardian_ID=%s WHERE Student_ID=%s",
+                               (data['First_Name'], data['Last_Name'], data['Username'], generate_password_hash(data['Password']), g_id, student_id))
             else:
-                cursor.execute("""
-                    UPDATE student SET First_Name=%s, Last_Name=%s, Username=%s, Guardian_ID=%s 
-                    WHERE Student_ID=%s
-                """, (data['First_Name'], data['Last_Name'], data['Username'], g_id, student_id))
+                cursor.execute("UPDATE student SET First_Name=%s, Last_Name=%s, Username=%s, Guardian_ID=%s WHERE Student_ID=%s",
+                               (data['First_Name'], data['Last_Name'], data['Username'], g_id, student_id))
             db.commit()
             return jsonify({"status": "success", "message": "Student updated!"}), 200
     except Exception as e:
@@ -684,7 +480,7 @@ def api_modify_student(student_id):
         db.close()
 
 # ==========================================
-# ADMIN CRUD: COURSES (UPDATED WITH PUT)
+# ADMIN CRUD: COURSES
 # ==========================================
 @app.route('/api/admin/courses', methods=['GET', 'POST'])
 def api_courses():
@@ -694,7 +490,6 @@ def api_courses():
         if request.method == 'GET':
             cursor.execute("SELECT Course_Code, Course_Title FROM course ORDER BY Course_Code")
             return jsonify({"status": "success", "data": cursor.fetchall()}), 200
-            
         elif request.method == 'POST':
             data = request.json
             cursor.execute("INSERT INTO course (Course_Code, Course_Title) VALUES (%s, %s)", 
@@ -727,106 +522,7 @@ def api_modify_course(course_code):
         db.close()
 
 # ==========================================
-# ADMIN CRUD: CLASS SESSIONS
-# ==========================================
-@app.route('/api/admin/sessions', methods=['GET', 'POST'])
-def api_sessions():
-    db = get_db_connection()
-    cursor = db.cursor(dictionary=True)
-    try:
-        if request.method == 'GET':
-            # Use JOINs to get the Professor's actual name
-            cursor.execute("""
-                SELECT cs.Session_ID, cs.Course_Code, cs.Professor_ID, 
-                       CONCAT(p.First_Name, ' ', p.Last_Name) AS Professor_Name
-                FROM class_session cs
-                JOIN professor p ON cs.Professor_ID = p.Professor_ID
-                ORDER BY cs.Course_Code
-            """)
-            return jsonify({"status": "success", "data": cursor.fetchall()}), 200
-            
-        elif request.method == 'POST':
-            data = request.json
-            cursor.execute("INSERT INTO class_session (Course_Code, Professor_ID) VALUES (%s, %s)", 
-                           (data['Course_Code'], data['Professor_ID']))
-            db.commit()
-            return jsonify({"status": "success", "message": "Class Session created!"}), 201
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-    finally:
-        db.close()
-
-@app.route('/api/admin/sessions/<int:session_id>', methods=['DELETE'])
-def api_modify_session(session_id):
-    db = get_db_connection()
-    cursor = db.cursor()
-    try:
-        cursor.execute("DELETE FROM class_session WHERE Session_ID = %s", (session_id,))
-        db.commit()
-        return jsonify({"status": "success", "message": "Session deleted!"}), 200
-    except Exception as e:
-        return jsonify({"status": "error", "message": "Cannot delete. Students might be enrolled."}), 500
-    finally:
-        db.close()
-
-# ==========================================
-# ADMIN CRUD: ENROLLMENTS
-# ==========================================
-@app.route('/api/admin/enrollments', methods=['GET', 'POST'])
-def api_enrollments():
-    db = get_db_connection()
-    cursor = db.cursor(dictionary=True)
-    try:
-        if request.method == 'GET':
-            cursor.execute("""
-                SELECT e.Enrollment_ID, e.Student_ID, e.Course_Code, e.Academic_Year, e.Semester, e.Current_Grade,
-                       CONCAT(s.First_Name, ' ', s.Last_Name) AS Student_Name
-                FROM enrollment e
-                JOIN student s ON e.Student_ID = s.Student_ID
-                ORDER BY s.Last_Name
-            """)
-            return jsonify({"status": "success", "data": cursor.fetchall()}), 200
-            
-        elif request.method == 'POST':
-            data = request.json
-            grade = data.get('Current_Grade')
-            grade = grade if grade else None 
-            
-            cursor.execute("""
-                INSERT INTO enrollment (Student_ID, Course_Code, Academic_Year, Semester, Current_Grade) 
-                VALUES (%s, %s, %s, %s, %s)
-            """, (data['Student_ID'], data['Course_Code'], data['Academic_Year'], data['Semester'], grade))
-            db.commit()
-            return jsonify({"status": "success", "message": "Student Enrolled!"}), 201
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-    finally:
-        db.close()
-
-@app.route('/api/admin/enrollments/<int:enroll_id>', methods=['DELETE', 'PUT'])
-def api_modify_enrollment(enroll_id):
-    db = get_db_connection()
-    cursor = db.cursor()
-    try:
-        if request.method == 'DELETE':
-            cursor.execute("DELETE FROM enrollment WHERE Enrollment_ID = %s", (enroll_id,))
-            db.commit()
-            return jsonify({"status": "success", "message": "Enrollment deleted!"}), 200
-        elif request.method == 'PUT':
-            data = request.json
-            cursor.execute("""
-                UPDATE enrollment SET Academic_Year=%s, Semester=%s, Current_Grade=%s 
-                WHERE Enrollment_ID=%s
-            """, (data.get('Academic_Year'), data.get('Semester'), data.get('Current_Grade') or None, enroll_id))
-            db.commit()
-            return jsonify({"status": "success", "message": "Enrollment updated!"}), 200
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-    finally:
-        db.close()
-
-# ==========================================
-# ADMIN CRUD: CLASS SCHEDULES
+# ADMIN CRUD: SCHEDULES
 # ==========================================
 @app.route('/api/admin/schedules', methods=['GET', 'POST'])
 def api_schedules():
@@ -834,15 +530,14 @@ def api_schedules():
     cursor = db.cursor(dictionary=True)
     try:
         if request.method == 'GET':
+            # FIX: Pulling Room_Name and Schedule_Day based on actual DB schema
             cursor.execute("""
                 SELECT Schedule_ID, Course_Code, Room_Name, Schedule_Day, 
                        TIME_FORMAT(Start_Time, '%H:%i') AS Start_Time, 
                        TIME_FORMAT(End_Time, '%H:%i') AS End_Time
-                FROM class_schedule
-                ORDER BY Schedule_Day, Start_Time
+                FROM class_schedule ORDER BY Schedule_Day, Start_Time
             """)
             return jsonify({"status": "success", "data": cursor.fetchall()}), 200
-            
         elif request.method == 'POST':
             data = request.json
             cursor.execute("""
@@ -879,22 +574,113 @@ def api_modify_schedule(sched_id):
         db.close()
 
 # ==========================================
-# ADMIN CRUD: EVALUATIONS (ANONYMOUS & FORMATTED)
+# ADMIN CRUD: SESSIONS
+# ==========================================
+@app.route('/api/admin/sessions', methods=['GET', 'POST'])
+def api_sessions():
+    db = get_db_connection()
+    cursor = db.cursor(dictionary=True)
+    try:
+        if request.method == 'GET':
+            # FIX: Pulling Course_Code and Professor_ID based on actual DB Schema
+            cursor.execute("""
+                SELECT Session_ID, Course_Code, Professor_ID, DATE_FORMAT(Session_Date, '%Y-%m-%d') as Session_Date, Topic
+                FROM class_session ORDER BY Session_Date DESC
+            """)
+            return jsonify({"status": "success", "data": cursor.fetchall()}), 200
+        elif request.method == 'POST':
+            data = request.json
+            cursor.execute("INSERT INTO class_session (Course_Code, Professor_ID, Session_Date, Topic) VALUES (%s, %s, %s, %s)", 
+                           (data['Course_Code'], data['Professor_ID'], data['Session_Date'], data.get('Topic', '')))
+            db.commit()
+            return jsonify({"status": "success", "message": "Class Session created!"}), 201
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        db.close()
+
+@app.route('/api/admin/sessions/<int:session_id>', methods=['PUT', 'DELETE'])
+def api_modify_session(session_id):
+    db = get_db_connection()
+    cursor = db.cursor()
+    try:
+        if request.method == 'DELETE':
+            cursor.execute("DELETE FROM class_session WHERE Session_ID = %s", (session_id,))
+            db.commit()
+            return jsonify({"status": "success", "message": "Session deleted!"}), 200
+        elif request.method == 'PUT':
+            data = request.json
+            cursor.execute("""
+                UPDATE class_session SET Course_Code=%s, Professor_ID=%s, Session_Date=%s, Topic=%s WHERE Session_ID=%s
+            """, (data['Course_Code'], data['Professor_ID'], data['Session_Date'], data.get('Topic', ''), session_id))
+            db.commit()
+            return jsonify({"status": "success", "message": "Session updated!"}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        db.close()
+
+# ==========================================
+# ADMIN CRUD: ENROLLMENTS
+# ==========================================
+@app.route('/api/admin/enrollments', methods=['GET', 'POST'])
+def api_enrollments():
+    db = get_db_connection()
+    cursor = db.cursor(dictionary=True)
+    try:
+        if request.method == 'GET':
+            cursor.execute("""
+                SELECT e.Enrollment_ID, e.Student_ID, e.Course_Code, e.Academic_Year, e.Semester, e.Current_Grade,
+                       CONCAT(s.First_Name, ' ', s.Last_Name) AS Student_Name
+                FROM enrollment e JOIN student s ON e.Student_ID = s.Student_ID ORDER BY s.Last_Name
+            """)
+            return jsonify({"status": "success", "data": cursor.fetchall()}), 200
+        elif request.method == 'POST':
+            data = request.json
+            grade = data.get('Current_Grade') or None 
+            cursor.execute("""
+                INSERT INTO enrollment (Student_ID, Course_Code, Academic_Year, Semester, Current_Grade) 
+                VALUES (%s, %s, %s, %s, %s)
+            """, (data['Student_ID'], data['Course_Code'], data['Academic_Year'], data['Semester'], grade))
+            db.commit()
+            return jsonify({"status": "success", "message": "Student Enrolled!"}), 201
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        db.close()
+
+@app.route('/api/admin/enrollments/<int:enroll_id>', methods=['DELETE', 'PUT'])
+def api_modify_enrollment(enroll_id):
+    db = get_db_connection()
+    cursor = db.cursor()
+    try:
+        if request.method == 'DELETE':
+            cursor.execute("DELETE FROM enrollment WHERE Enrollment_ID = %s", (enroll_id,))
+            db.commit()
+            return jsonify({"status": "success", "message": "Enrollment deleted!"}), 200
+        elif request.method == 'PUT':
+            data = request.json
+            cursor.execute("""
+                UPDATE enrollment SET Academic_Year=%s, Semester=%s, Current_Grade=%s WHERE Enrollment_ID=%s
+            """, (data.get('Academic_Year'), data.get('Semester'), data.get('Current_Grade') or None, enroll_id))
+            db.commit()
+            return jsonify({"status": "success", "message": "Enrollment updated!"}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        db.close()
+
+# ==========================================
+# ADMIN CRUD: EVALUATIONS
 # ==========================================
 @app.route('/api/admin/evaluations', methods=['GET'])
 def api_evaluations():
     db = get_db_connection()
     cursor = db.cursor(dictionary=True)
     try:
-        # We only join class_session. Student data is completely ignored for anonymity.
-        # We use DATE_FORMAT to make it look like "Sun, Apr 12, 2026"
         cursor.execute("""
-            SELECT ev.*, 
-                   cs.Course_Code,
-                   DATE_FORMAT(ev.Submission_Date, '%a, %b %d, %Y') AS Formatted_Date
-            FROM evaluation ev
-            LEFT JOIN class_session cs ON ev.Session_ID = cs.Session_ID
-            ORDER BY ev.Evaluation_ID DESC
+            SELECT ev.*, cs.Course_Code, DATE_FORMAT(ev.Submission_Date, '%a, %b %d, %Y') AS Formatted_Date
+            FROM evaluation ev LEFT JOIN class_session cs ON ev.Session_ID = cs.Session_ID ORDER BY ev.Evaluation_ID DESC
         """)
         return jsonify({"status": "success", "data": cursor.fetchall()}), 200
     except Exception as e:

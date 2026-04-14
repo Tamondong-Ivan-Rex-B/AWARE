@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import (
     QHeaderView
 )
 from PyQt6.QtCore import QThread, pyqtSignal
+
 from config import BASE_URL
 
 # ==========================================
@@ -78,12 +79,12 @@ class GuardianDialog(QDialog):
         self.first_name = QLineEdit(data.get("First_Name", "") if data else "")
         self.last_name = QLineEdit(data.get("Last_Name", "") if data else "")
         self.email = QLineEdit(data.get("Email", "") if data else "")
-        self.phone = QLineEdit(data.get("Phone", "") if data else "")
+        self.phone = QLineEdit(data.get("Contact_Number", "") if data else "")
 
         layout.addRow("First Name:", self.first_name)
         layout.addRow("Last Name:", self.last_name)
         layout.addRow("Email:", self.email)
-        layout.addRow("Phone:", self.phone)
+        layout.addRow("Contact Number:", self.phone)
 
         self.btns = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
         self.btns.accepted.connect(self.accept)
@@ -95,7 +96,7 @@ class GuardianDialog(QDialog):
             "First_Name": self.first_name.text().strip(),
             "Last_Name": self.last_name.text().strip(),
             "Email": self.email.text().strip(),
-            "Phone": self.phone.text().strip()
+            "Contact_Number": self.phone.text().strip() 
         }
 
 class StudentDialog(QDialog):
@@ -176,7 +177,7 @@ class ScheduleDialog(QDialog):
         layout = QFormLayout(self)
         
         self.course_combo = QComboBox()
-        self.prof_combo = QComboBox()
+        self.room_input = QLineEdit(data.get("Room_Name", "") if data else "")
         self.day_combo = QComboBox()
         self.day_combo.addItems(["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"])
         
@@ -186,25 +187,16 @@ class ScheduleDialog(QDialog):
         try:
             courses = requests.get(f"{BASE_URL}/api/admin/courses").json().get("data", [])
             for c in courses: self.course_combo.addItem(c["Course_Code"], c["Course_Code"])
-            
-            profs = requests.get(f"{BASE_URL}/api/admin/professors").json().get("data", [])
-            for p in profs: self.prof_combo.addItem(f"{p['First_Name']} {p['Last_Name']}", p["Professor_ID"])
         except: pass
 
         if data:
             c_idx = self.course_combo.findData(data.get("Course_Code"))
             if c_idx >= 0: self.course_combo.setCurrentIndex(c_idx)
-            
-            for i in range(self.prof_combo.count()):
-                if str(self.prof_combo.itemData(i)) == str(data.get("Prof_ID")):
-                    self.prof_combo.setCurrentIndex(i)
-                    break
-            
-            self.day_combo.setCurrentText(data.get("Day"))
+            self.day_combo.setCurrentText(data.get("Schedule_Day"))
 
         layout.addRow("Course:", self.course_combo)
-        layout.addRow("Professor:", self.prof_combo)
-        layout.addRow("Day:", self.day_combo)
+        layout.addRow("Room Name:", self.room_input)
+        layout.addRow("Schedule Day:", self.day_combo)
         layout.addRow("Start Time:", self.start_time)
         layout.addRow("End Time:", self.end_time)
 
@@ -216,8 +208,8 @@ class ScheduleDialog(QDialog):
     def get_data(self):
         return {
             "Course_Code": self.course_combo.currentData(),
-            "Professor_ID": self.prof_combo.currentData(),
-            "Day_of_Week": self.day_combo.currentText(),
+            "Room_Name": self.room_input.text().strip(),
+            "Schedule_Day": self.day_combo.currentText(),
             "Start_Time": self.start_time.text().strip(),
             "End_Time": self.end_time.text().strip()
         }
@@ -234,7 +226,7 @@ class EnrollmentDialog(QDialog):
         self.acad_year = QLineEdit(data.get("Academic_Year", "2025-2026") if data else "2025-2026")
         self.semester = QComboBox()
         self.semester.addItems(["1st", "2nd", "Summer"])
-        if data and data.get("Semester"): self.semester.setCurrentText(data.get("Semester"))
+        if data and data.get("Semester"): self.semester.setCurrentText(str(data.get("Semester")))
         self.grade = QLineEdit(data.get("Current_Grade", "1.00") if data else "")
 
         try:
@@ -279,23 +271,34 @@ class SessionDialog(QDialog):
         self.setWindowTitle("Edit Session" if data else "Add Session")
         layout = QFormLayout(self)
         
-        self.sched_combo = QComboBox()
+        self.course_combo = QComboBox()
+        self.prof_combo = QComboBox()
         self.date_input = QLineEdit(data.get("Session_Date", "2026-04-15") if data else "2026-04-15")
         self.topic_input = QLineEdit(data.get("Topic", "") if data else "")
 
         try:
-            scheds = requests.get(f"{BASE_URL}/api/admin/schedules").json().get("data", [])
-            for s in scheds: self.sched_combo.addItem(f"Sched #{s['Schedule_ID']} - {s['Course_Code']}", s["Schedule_ID"])
+            courses = requests.get(f"{BASE_URL}/api/admin/courses").json().get("data", [])
+            for c in courses: self.course_combo.addItem(c["Course_Code"], c["Course_Code"])
+            
+            profs = requests.get(f"{BASE_URL}/api/admin/professors").json().get("data", [])
+            for p in profs: self.prof_combo.addItem(f"{p['First_Name']} {p['Last_Name']}", p["Professor_ID"])
         except: pass
 
         if data:
-            for i in range(self.sched_combo.count()):
-                if str(self.sched_combo.itemData(i)) == str(data.get("Schedule_ID")):
-                    self.sched_combo.setCurrentIndex(i)
+            c_idx = self.course_combo.findData(data.get("Course_Code"))
+            if c_idx >= 0: self.course_combo.setCurrentIndex(c_idx)
+            
+            for i in range(self.prof_combo.count()):
+                if str(self.prof_combo.itemData(i)) == str(data.get("Professor_ID")):
+                    self.prof_combo.setCurrentIndex(i)
                     break
 
-        layout.addRow("Schedule:", self.sched_combo)
-        layout.addRow("Date (YYYY-MM-DD):", self.date_input)
+            self.date_input.setText(data.get("Session_Date", ""))
+            self.topic_input.setText(data.get("Topic", ""))
+
+        layout.addRow("Course:", self.course_combo)
+        layout.addRow("Professor:", self.prof_combo)
+        layout.addRow("Session Date (YYYY-MM-DD):", self.date_input)
         layout.addRow("Topic:", self.topic_input)
 
         self.btns = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
@@ -305,7 +308,8 @@ class SessionDialog(QDialog):
 
     def get_data(self):
         return {
-            "Schedule_ID": self.sched_combo.currentData(),
+            "Course_Code": self.course_combo.currentData(),
+            "Professor_ID": self.prof_combo.currentData(),
             "Session_Date": self.date_input.text().strip(),
             "Topic": self.topic_input.text().strip()
         }
@@ -319,7 +323,6 @@ class ManageDataWindow(QWidget):
         self.setWindowTitle("⚙️ A.W.A.R.E. Data Management")
         self.resize(1100, 700)
         
-        # UI TWEAK: Added explicit coloring for dropdown menus (QAbstractItemView)
         self.setStyleSheet("""
         QPushButton { background-color: white; color: #5071c1; border: 1px solid #cbd5e1; border-radius: 5px; padding: 6px 15px; font-weight: bold; min-width: 60px; }
         QPushButton:hover { background-color: #f8fafc; border: 1px solid #5071c1; }
@@ -344,12 +347,12 @@ class ManageDataWindow(QWidget):
         self.tabs = QTabWidget()
         
         self.tabs.addTab(self.create_ui_tab("Professors", ["ID", "First Name", "Last Name", "Department"], self.handle_prof_crud), "Professors")
-        self.tabs.addTab(self.create_ui_tab("Guardians", ["ID", "First Name", "Last Name", "Email", "Phone"], self.handle_guardian_crud), "Guardians")
+        self.tabs.addTab(self.create_ui_tab("Guardians", ["ID", "First Name", "Last Name", "Email", "Contact Number"], self.handle_guardian_crud), "Guardians")
         self.tabs.addTab(self.create_ui_tab("Students", ["ID", "First Name", "Last Name", "Guardian ID"], self.handle_student_crud), "Students")
         self.tabs.addTab(self.create_ui_tab("Courses", ["Code", "Title"], self.handle_course_crud), "Courses")
-        self.tabs.addTab(self.create_ui_tab("Schedules", ["ID", "Course", "Prof ID", "Day", "Start", "End"], self.handle_schedule_crud), "Schedules")
+        self.tabs.addTab(self.create_ui_tab("Schedules", ["ID", "Course", "Room Name", "Schedule Day", "Start", "End"], self.handle_schedule_crud), "Schedules")
         self.tabs.addTab(self.create_ui_tab("Enrollments", ["ID", "Student ID", "Course", "Acad. Year", "Semester", "Grade"], self.handle_enrollment_crud), "Enrollments")
-        self.tabs.addTab(self.create_ui_tab("Class Sessions", ["ID", "Schedule ID", "Date", "Topic", "Attendance"], self.handle_session_crud), "Sessions")
+        self.tabs.addTab(self.create_ui_tab("Class Sessions", ["ID", "Course", "Topic", "Date", "Prof ID"], self.handle_session_crud), "Sessions")
         self.tabs.addTab(self.create_ui_tab("Evaluations", ["ID", "Course", "Clarity", "Pacing", "Comp.", "Engage.", "Date", "Study Hrs", "Comments"], self.handle_eval_crud, hide_add_edit=True), "Evaluations")
         
         main_layout.addWidget(self.tabs)
@@ -393,7 +396,7 @@ class ManageDataWindow(QWidget):
         return tab
 
     # ==========================================
-    # BULLETPROOF POPULATOR (100% Case Insensitive)
+    # EXACT, HARDCODED DB MAPPER
     # ==========================================
     def refresh_tab(self, index):
         self.loaded_tabs[index] = False 
@@ -401,12 +404,10 @@ class ManageDataWindow(QWidget):
 
     def on_tab_changed(self, index):
         if self.loaded_tabs[index]: return 
-        # FIX: Changed the endpoint to /api/admin/sessions to fix the 404 error!
         endpoints = {
             0: "/api/admin/professors", 1: "/api/admin/guardians", 2: "/api/admin/students",
             3: "/api/admin/courses", 4: "/api/admin/schedules", 5: "/api/admin/enrollments",
-            6: "/api/admin/sessions",  
-            7: "/api/admin/evaluations"
+            6: "/api/admin/sessions", 7: "/api/admin/evaluations"
         }
         if index in endpoints:
             self.worker = FetchDataWorker(index, endpoints[index])
@@ -420,30 +421,39 @@ class ManageDataWindow(QWidget):
     def handle_data_loaded(self, idx, data):
         self.loaded_tabs[idx] = True
         
-        # Passing multiple possible key combinations to ensure it catches the data!
-        if idx == 0: self.populate_robust(self.professors_table, data, [["Professor_ID", "ID"], ["First_Name"], ["Last_Name"], ["Department"]])
-        elif idx == 1: self.populate_robust(self.guardians_table, data, [["Guardian_ID", "ID"], ["First_Name"], ["Last_Name"], ["Email"], ["Phone_Number", "Phone", "Contact"]])
-        elif idx == 2: self.populate_robust(self.students_table, data, [["Student_ID", "ID"], ["First_Name"], ["Last_Name"], ["Guardian_ID", "Guardian"]])
-        elif idx == 3: self.populate_robust(self.courses_table, data, [["Course_Code", "Code"], ["Course_Title", "Title"]])
-        elif idx == 4: self.populate_robust(self.schedules_table, data, [["Schedule_ID", "ID"], ["Course_Code"], ["Professor_ID", "Prof_ID"], ["Day_of_Week", "Day"], ["Start_Time"], ["End_Time"]])
-        elif idx == 5: self.populate_robust(self.enrollments_table, data, [["Enrollment_ID", "ID"], ["Student_ID"], ["Course_Code"], ["Academic_Year", "Year"], ["Semester"], ["Current_Grade", "Grade"]])
-        elif idx == 6: self.populate_robust(self.class_sessions_table, data, [["Session_ID", "Class_Session_ID", "ID"], ["Schedule_ID"], ["Session_Date", "Date"], ["Topic"], ["Attendance_Count", "Attendance"]])
-        elif idx == 7: self.populate_robust(self.evaluations_table, data, [["Evaluation_ID", "ID"], ["Course_Code"], ["Clarity_Score", "Clarity"], ["Pacing_Score", "Pacing"], ["Comprehension_Score", "Comprehension"], ["Engagement_Score", "Engagement"], ["Evaluation_Date", "Date", "timestamp"], ["Study_Hours", "Hours"], ["Additional_Comments", "Comments"]])
+        # Hardcoded to match aware_db.sql keys exactly! No guessing!
+        if idx == 0: 
+            self.populate_exact(self.professors_table, data, ["Professor_ID", "First_Name", "Last_Name", "Department"])
+        elif idx == 1: 
+            self.populate_exact(self.guardians_table, data, ["Guardian_ID", "First_Name", "Last_Name", "Email", "Contact_Number"])
+        elif idx == 2: 
+            self.populate_exact(self.students_table, data, ["Student_ID", "First_Name", "Last_Name", "Guardian_ID"])
+        elif idx == 3: 
+            self.populate_exact(self.courses_table, data, ["Course_Code", "Course_Title"])
+        elif idx == 4: 
+            self.populate_exact(self.schedules_table, data, ["Schedule_ID", "Course_Code", "Room_Name", "Schedule_Day", "Start_Time", "End_Time"])
+        elif idx == 5: 
+            self.populate_exact(self.enrollments_table, data, ["Enrollment_ID", "Student_ID", "Course_Code", "Academic_Year", "Semester", "Current_Grade"])
+        elif idx == 6: 
+            # Reordered columns to exactly match: ID, Course, Topic, Date, Prof ID
+            self.populate_exact(self.class_sessions_table, data, ["Session_ID", "Course_Code", "Topic", "Session_Date", "Professor_ID"])
+        elif idx == 7: 
+            # Note: The DB stores the date string in Formatted_Date or Submission_Date depending on the route query.
+            # And Study_Hours is pulled correctly.
+            self.populate_exact(self.evaluations_table, data, ["Evaluation_ID", "Course_Code", "Clarity_Score", "Pacing_Score", "Comprehension_Score", "Engagement_Score", "Submission_Date", "Study_Hours", "Additional_Comments"])
 
-    def populate_robust(self, table, data, possible_keys_list):
+    def populate_exact(self, table, data, exact_keys):
         table.setRowCount(len(data))
         for r, row_data in enumerate(data):
-            # Magic trick: convert all keys in the database response to strictly lowercase
-            row_lower = {str(k).lower(): v for k, v in row_data.items()}
-
-            for c, possible_keys in enumerate(possible_keys_list):
-                val = "-"
-                # Check our fallback options against the lowercase dictionary
-                for key in possible_keys:
-                    key_lower = str(key).lower()
-                    if key_lower in row_lower and row_lower[key_lower] is not None:
-                        val = row_lower[key_lower]
-                        break
+            for c, key in enumerate(exact_keys):
+                # We check for both Formatted_Date and Submission_Date just in case for the Evaluation Date column
+                if key == "Submission_Date" and "Formatted_Date" in row_data:
+                    val = row_data.get("Formatted_Date")
+                else:
+                    val = row_data.get(key)
+                    
+                if val is None or val == "":
+                    val = "-"
                 table.setItem(r, c, QTableWidgetItem(str(val)))
 
     # ==========================================
@@ -491,7 +501,7 @@ class ManageDataWindow(QWidget):
         elif action == "EDIT":
             r = self.get_selected(t)
             if r is None: return
-            data = {"First_Name": t.item(r,1).text(), "Last_Name": t.item(r,2).text(), "Email": t.item(r,3).text(), "Phone": t.item(r,4).text()}
+            data = {"First_Name": t.item(r,1).text(), "Last_Name": t.item(r,2).text(), "Email": t.item(r,3).text(), "Contact_Number": t.item(r,4).text()}
             dlg = GuardianDialog(self, data)
             if dlg.exec() == QDialog.DialogCode.Accepted: self.api_call("PUT", f"/api/admin/guardians/{t.item(r,0).text()}", dlg.get_data(), 1)
         elif action == "DELETE":
@@ -536,7 +546,7 @@ class ManageDataWindow(QWidget):
         elif action == "EDIT":
             r = self.get_selected(t)
             if r is None: return
-            data = {"Course_Code": t.item(r,1).text(), "Prof_ID": t.item(r,2).text(), "Day": t.item(r,3).text(), "Start_Time": t.item(r,4).text(), "End_Time": t.item(r,5).text()}
+            data = {"Course_Code": t.item(r,1).text(), "Room_Name": t.item(r,2).text(), "Schedule_Day": t.item(r,3).text(), "Start_Time": t.item(r,4).text(), "End_Time": t.item(r,5).text()}
             dlg = ScheduleDialog(self, data)
             if dlg.exec() == QDialog.DialogCode.Accepted: self.api_call("PUT", f"/api/admin/schedules/{t.item(r,0).text()}", dlg.get_data(), 4)
         elif action == "DELETE":
@@ -566,7 +576,7 @@ class ManageDataWindow(QWidget):
         elif action == "EDIT":
             r = self.get_selected(t)
             if r is None: return
-            data = {"Schedule_ID": t.item(r,1).text(), "Session_Date": t.item(r,2).text(), "Topic": t.item(r,3).text()}
+            data = {"Course_Code": t.item(r,1).text(), "Topic": t.item(r,2).text(), "Session_Date": t.item(r,3).text(), "Professor_ID": t.item(r,4).text()}
             dlg = SessionDialog(self, data)
             if dlg.exec() == QDialog.DialogCode.Accepted: self.api_call("PUT", f"/api/admin/sessions/{t.item(r,0).text()}", dlg.get_data(), 6)
         elif action == "DELETE":

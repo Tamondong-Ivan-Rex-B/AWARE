@@ -2,10 +2,48 @@ import requests
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox,
                              QPushButton, QFrame, QTableWidget, QTableWidgetItem, 
                              QHeaderView, QMessageBox, QMenu)
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QFont, QCursor
 from config import BASE_URL
 
+# =====================
+# 1. API WORKER THREAD
+# =====================
+class DashboardWorker(QThread):
+    finished_success = pyqtSignal(dict)
+    finished_error = pyqtSignal(str)
+
+    def __init__(self, prof_id=None):
+        super().__init__()
+        self.prof_id = prof_id
+
+    def run(self):
+        try:
+            params = {}
+            if self.prof_id:
+                params['prof_id'] = self.prof_id
+                
+            response = requests.get(f"{BASE_URL}/api/get_dashboard_data", params=params, timeout=10)
+            response.raise_for_status()
+            self.finished_success.emit(response.json())
+        except Exception as e:
+            self.finished_error.emit(str(e))
+
+class WeekWorker(QThread):
+    finished_success = pyqtSignal(dict)
+    finished_error = pyqtSignal(str)
+
+    def run(self):
+        try:
+            response = requests.get(f"{BASE_URL}/api/week", timeout=5)
+            response.raise_for_status()
+            self.finished_success.emit(response.json())
+        except Exception as e:
+            self.finished_error.emit(str(e))
+
+# ==========================================
+# 2. MAIN DASHBOARD PAGE
+# ==========================================
 class DashboardPage(QWidget):
     def __init__(self, main_window):
         super().__init__()
@@ -14,25 +52,21 @@ class DashboardPage(QWidget):
         
         # Master data storage for cascading filters
         self.all_evaluations = []
+        self.dash_worker = None
+        self.week_worker = None
         
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 20, 20, 20)
         
         # --- 1. Navbar ---
         nav_layout = QHBoxLayout()
-        # Changed 'title' to 'self.title'
-        self.title = QLabel("<b>🎓 Admin Dashboard</b><br><span style='font-size:12px; color:gray;'>A.W.A.R.E. System Live Data</span>")
+        self.title = QLabel("<b>📊 Admin Dashboard</b><br><span style='font-size:12px; color:gray;'>A.W.A.R.E. System Live Data</span>")
         self.title.setFont(QFont("Segoe UI", 16))
         
-        # A label to show the current week
         self.week_label = QLabel("Loading week...")
         self.week_label.setStyleSheet("""
-            background-color: #6d28d9; 
-            color: white; 
-            padding: 8px 16px; 
-            border-radius: 6px; 
-            font-weight: bold; 
-            font-size: 14px;
+            background-color: #6d28d9; color: white; padding: 8px 16px; 
+            border-radius: 6px; font-weight: bold; font-size: 14px;
         """)
         
         standard_btn_style = """
@@ -45,18 +79,16 @@ class DashboardPage(QWidget):
             QPushButton:hover { background-color: #FEF2F2; border: 1px solid #EF4444; }
         """
         
-        refresh_btn = QPushButton("↻ Refresh Data")
+        refresh_btn = QPushButton("🔄 Refresh Data")
         refresh_btn.setStyleSheet(standard_btn_style)
         refresh_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         refresh_btn.clicked.connect(self.fetch_live_data)
         
-        # NEW: Analytics Button
-        analytics_btn = QPushButton("📊 Analytics")
+        analytics_btn = QPushButton("📈 Analytics")
         analytics_btn.setStyleSheet(standard_btn_style)
         analytics_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         analytics_btn.clicked.connect(self.open_analytics)
         
-        # --- NEW: Manage Data Button (Only for Admins) ---
         self.manage_btn = QPushButton("⚙️ Manage Data")
         self.manage_btn.setStyleSheet(standard_btn_style)
         self.manage_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
@@ -82,7 +114,7 @@ class DashboardPage(QWidget):
         kpi_layout.addWidget(box_pacing)
         kpi_layout.addWidget(box_comp)
         
-        # --- 3. Cascading Filters (Preserved Filtering System) ---
+        # --- 3. Cascading Filters ---
         filter_layout = QHBoxLayout()
         
         self.filter_mode = QComboBox()
@@ -97,7 +129,6 @@ class DashboardPage(QWidget):
         self.topic_filter.setFixedWidth(160)
         self.topic_filter.addItem("All Topics")
         
-        #The new Week Filter
         self.week_filter = QComboBox()
         self.week_filter.setFixedWidth(120)
         self.week_filter.addItem("All Weeks")
@@ -106,7 +137,6 @@ class DashboardPage(QWidget):
         self.score_filter = QComboBox()
         self.score_filter.addItems(["All Scores", "High Understanding (4-5)", "Low Understanding (1-2)"])
         
-        # Connect Cascading Logic
         self.filter_mode.currentIndexChanged.connect(self.on_mode_changed)
         self.primary_target.currentIndexChanged.connect(self.on_target_changed) 
         self.topic_filter.currentIndexChanged.connect(self.apply_filters)
@@ -124,23 +154,20 @@ class DashboardPage(QWidget):
         self.score_filter.setFixedWidth(150)
         filter_layout.addWidget(self.score_filter)
 
-        # Save Table Button with dropdown menu
         save_btn = QPushButton("Save Table")
         save_btn.setObjectName("OutlineBtn")
         save_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
 
         menu = QMenu()
-
         csv_action = menu.addAction("Save as CSV")
         pdf_action = menu.addAction("Save as PDF")
-
         csv_action.triggered.connect(self.export_csv)
         pdf_action.triggered.connect(self.export_pdf)
-
         save_btn.setMenu(menu)
 
         filter_layout.addWidget(save_btn)
         filter_layout.addStretch()
+        
         # --- 4. TABLE VIEW ---
         table_container = QFrame()
         table_container.setObjectName("Card")
@@ -151,14 +178,12 @@ class DashboardPage(QWidget):
         self.table.setHorizontalHeaderLabels([
             "Week", "Course", "Topic", "Clarity", "Pacing", "Understanding", "Engagement", "Hours", "Comments"
         ])
-        
         header = self.table.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         
         table_layout.addWidget(QLabel("<b>Evaluation Data</b>"))
         table_layout.addWidget(self.table)
         
-        # Assembly
         layout.addLayout(nav_layout)
         layout.addSpacing(20)
         layout.addLayout(kpi_layout)
@@ -182,34 +207,60 @@ class DashboardPage(QWidget):
         box_layout.addWidget(v_label)
         return v_label, box
 
+    # ==========================================
+    # BACKGROUND FETCHING
+    # ==========================================
+    def fetch_current_week(self):
+        if self.week_worker is not None and self.week_worker.isRunning():
+            return
+        self.week_worker = WeekWorker()
+        self.week_worker.finished_success.connect(self.handle_week_success)
+        self.week_worker.finished_error.connect(self.handle_week_error)
+        self.week_worker.start()
+
+    def handle_week_success(self, data):
+        if data["status"] in ["Not Started", "Sembreak"]:
+            self.week_label.setText(f"Status: {data['status']}")
+        else:
+            self.week_label.setText(f"Week {data['week_number']} ({data['status']})")
+
+    def handle_week_error(self, err):
+        print(f"Error fetching week: {err}")
+        self.week_label.setText("Week: Server Error")
+
     def fetch_live_data(self):
-        """Pulls data from the Flask API on port 5001"""
-        try:
-            params = {}
-            if hasattr(self, 'current_user') and self.current_user.get("role") == "professor":
-                params['prof_id'] = self.current_user['user']['id']
-                
-            response = requests.get(f"{BASE_URL}/api/get_dashboard_data")
-            if response.status_code != 200:
-                QMessageBox.warning(self, "Server Error", "Server returned an error.")
-                return
-                
-            data = response.json()
-            avgs = data.get("averages", {})
-            self.val_pacing.setText(f"{float(avgs.get('avg_pacing', 0)):.1f}")
-            self.val_comp.setText(f"{float(avgs.get('avg_comp', 0)):.1f}")
-
-            self.all_evaluations = data.get("evaluations", [])
+        """Starts the background worker to fetch evaluation data."""
+        if self.dash_worker is not None and self.dash_worker.isRunning():
+            return
             
-            if hasattr(self, 'current_user') and self.current_user.get("role") == "professor":
-                prof_name = self.current_user['user']['name']
-                self.all_evaluations = [e for e in self.all_evaluations if e.get("Professor_Name") == prof_name]
+        prof_id = None
+        if hasattr(self, 'current_user') and self.current_user.get("role") == "professor":
+            prof_id = self.current_user['user']['id']
             
-            self.on_mode_changed() 
-                
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"Could not connect: {e}")
+        self.dash_worker = DashboardWorker(prof_id)
+        self.dash_worker.finished_success.connect(self.handle_dash_success)
+        self.dash_worker.finished_error.connect(self.handle_dash_error)
+        self.dash_worker.start()
 
+    def handle_dash_error(self, err):
+        QMessageBox.critical(self, "Error", f"Could not connect: {err}")
+
+    def handle_dash_success(self, data):
+        avgs = data.get("averages", {})
+        self.val_pacing.setText(f"{float(avgs.get('avg_pacing', 0)):.1f}")
+        self.val_comp.setText(f"{float(avgs.get('avg_comp', 0)):.1f}")
+
+        self.all_evaluations = data.get("evaluations", [])
+        
+        if hasattr(self, 'current_user') and self.current_user.get("role") == "professor":
+            prof_name = self.current_user['user']['name']
+            self.all_evaluations = [e for e in self.all_evaluations if e.get("Professor_Name") == prof_name]
+        
+        self.on_mode_changed() 
+
+    # ==========================================
+    # UI LOGIC & FILTERS
+    # ==========================================
     def on_mode_changed(self):
         self.primary_target.blockSignals(True)
         mode = self.filter_mode.currentText()
@@ -247,14 +298,11 @@ class DashboardPage(QWidget):
                (mode == "By Professor" and ev.get("Professor_Name") == target):
                 
                 unique_topics.add(ev.get("Topic", ""))
-                
-                # Add week logic
                 week_num = ev.get("Week_Number", 0)
                 if week_num > 0:
                     unique_weeks.add(f"Week {week_num}")
                 
         self.topic_filter.addItems(sorted(list(unique_topics)))
-        # Sort weeks numerically (so Week 10 comes after Week 2)
         self.week_filter.addItems(sorted(list(unique_weeks), key=lambda x: int(x.replace("Week ", ""))))
         
         self.topic_filter.blockSignals(False)
@@ -273,8 +321,6 @@ class DashboardPage(QWidget):
             if mode == "By Course" and target != "All Courses" and ev.get("Course_Code") != target: continue
             if mode == "By Professor" and target != "All Professors" and ev.get("Professor_Name") != target: continue
             if topic != "All Topics" and ev.get("Topic") != topic: continue
-            
-            # Add Week Filtering Logic
             if week_selection != "All Weeks":
                 target_week_num = int(week_selection.replace("Week ", ""))
                 if ev.get("Week_Number") != target_week_num: continue
@@ -289,7 +335,6 @@ class DashboardPage(QWidget):
     def update_table(self, data):
         self.table.setRowCount(len(data))
         for row, ev in enumerate(data):
-            # Added Week as Column 0, shifted everything else down by 1
             week_display = f"Week {ev.get('Week_Number')}" if ev.get('Week_Number') > 0 else "N/A"
             self.table.setItem(row, 0, QTableWidgetItem(week_display))
             self.table.setItem(row, 1, QTableWidgetItem(str(ev.get("Course_Code", ""))))
@@ -300,17 +345,16 @@ class DashboardPage(QWidget):
             self.table.setItem(row, 6, QTableWidgetItem(str(ev.get("Engagement_Score", ""))))
             self.table.setItem(row, 7, QTableWidgetItem(str(ev.get("Study_Hours", 0))))
             self.table.setItem(row, 8, QTableWidgetItem(str(ev.get("Comments", ""))))
-            
+
+    # ==========================================
+    # WINDOW NAVIGATION
+    # ==========================================
     def open_analytics(self):
-        """Opens the separate analytics window"""
         try:
-            # FIX: Added 'pages.' to the import path
             from pages.analytics import AnalyticsWindow 
             prof_id = None
-            
             if hasattr(self, 'current_user') and self.current_user.get("role") == "professor":
                 prof_id = self.current_user['user']['id']
-                
             self.analytics_window = AnalyticsWindow(prof_id=prof_id)
             self.analytics_window.show()
         except ImportError:
@@ -318,108 +362,18 @@ class DashboardPage(QWidget):
         except Exception as e:
             QMessageBox.critical(self, "Launch Error", f"An unexpected error occurred: {e}")
 
-    def handle_logout(self):
-        self.table.setRowCount(0)
-        self.main_window.login_page.clear_inputs()
-        self.main_window.switch_page(0)
-
-    
-    # Export CSV Function
-    def export_csv(self):
-        import csv
-        from PyQt6.QtWidgets import QFileDialog
-
-        # Open save dialog
-        path, _ = QFileDialog.getSaveFileName(self, "Save CSV", "report.csv", "CSV Files (*.csv)")
-        if not path:
-            return
-
-        # Write table data to CSV
-        with open(path, mode='w', newline='', encoding='utf-8') as file:
-            writer = csv.writer(file)
-
-            # Get table headers
-            headers = [self.table.horizontalHeaderItem(i).text() for i in range(self.table.columnCount())]
-            writer.writerow(headers)
-
-            # Get table rows
-            for row in range(self.table.rowCount()):
-                row_data = []
-                for col in range(self.table.columnCount()):
-                    item = self.table.item(row, col)
-                    row_data.append(item.text() if item else "")
-                writer.writerow(row_data)
-
-    # Export PDF Function
-    def export_pdf(self):
-        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
-        from reportlab.lib import colors
-        from PyQt6.QtWidgets import QFileDialog
-
-        # Open save dialog
-        path, _ = QFileDialog.getSaveFileName(self, "Save PDF", "report.pdf", "PDF Files (*.pdf)")
-        if not path:
-            return
-
-        # Prepare document
-        doc = SimpleDocTemplate(path)
-
-        data = []
-
-        # Get table headers
-        headers = [self.table.horizontalHeaderItem(i).text() for i in range(self.table.columnCount())]
-        data.append(headers)
-
-        # Get table rows
-        for row in range(self.table.rowCount()):
-            row_data = []
-            for col in range(self.table.columnCount()):
-                item = self.table.item(row, col)
-                row_data.append(item.text() if item else "")
-            data.append(row_data)
-
-        # Create table
-        table = Table(data)
-
-        # Style the table
-        table.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,0), colors.grey),
-            ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
-            ('GRID', (0,0), (-1,-1), 1, colors.black),
-        ]))
-
-        # Build PDF
-        doc.build([table])
-    
-    def fetch_current_week(self):
-        try:
-            response = requests.get(f"{BASE_URL}/api/week", timeout=3)
-            if response.status_code == 200:
-                data = response.json()
-                if data["status"] in ["Not Started", "Sembreak"]:
-                    self.week_label.setText(f"Status: {data['status']}")
-                else:
-                    self.week_label.setText(f"Week {data['week_number']} ({data['status']})")
-            else:
-                self.week_label.setText("Week: Offline")
-        except Exception as e:
-            print(f"Error fetching week: {e}") # This will print the exact error to your terminal!
-            self.week_label.setText("Week: Server Error")
-            
     def update_user_info(self, data):
-        """Called automatically by main.py when a user logs in."""
         self.current_user = data
         role = data.get("role", "admin")
         user_info = data.get("user", {})
         
         if role == "professor":
-            self.title.setText(f"<b>🎓 Professor Dashboard</b><br><span style='font-size:12px; color:gray;'>Welcome, Prof. {user_info.get('name', '')}</span>")
-            # Hide the "By Professor" filter because they can only see themselves!
+            self.title.setText(f"<b>📊 Professor Dashboard</b><br><span style='font-size:12px; color:gray;'>Welcome, Prof. {user_info.get('name', '')}</span>")
             self.filter_mode.clear()
             self.filter_mode.addItems(["By Course"])
             self.manage_btn.hide()
         else:
-            self.title.setText("<b>🎓 Admin Dashboard</b><br><span style='font-size:12px; color:gray;'>A.W.A.R.E. System Live Data</span>")
+            self.title.setText("<b>📊 Admin Dashboard</b><br><span style='font-size:12px; color:gray;'>A.W.A.R.E. System Live Data</span>")
             self.filter_mode.clear()
             self.filter_mode.addItems(["By Course", "By Professor"])
             self.manage_btn.show()
@@ -431,5 +385,60 @@ class DashboardPage(QWidget):
             self.manage_window.show()
         except Exception as e:
             QMessageBox.critical(self, "Launch Error", f"Could not open Data Manager: {e}")
-    
         self.fetch_live_data()
+
+    def handle_logout(self):
+        self.table.setRowCount(0)
+        self.main_window.login_page.clear_inputs()
+        self.main_window.switch_page(0)
+
+    # ==========================================
+    # EXPORTING
+    # ==========================================
+    def export_csv(self):
+        import csv
+        from PyQt6.QtWidgets import QFileDialog
+
+        path, _ = QFileDialog.getSaveFileName(self, "Save CSV", "report.csv", "CSV Files (*.csv)")
+        if not path: return
+
+        with open(path, mode='w', newline='', encoding='utf-8') as file:
+            writer = csv.writer(file)
+            headers = [self.table.horizontalHeaderItem(i).text() for i in range(self.table.columnCount())]
+            writer.writerow(headers)
+
+            for row in range(self.table.rowCount()):
+                row_data = []
+                for col in range(self.table.columnCount()):
+                    item = self.table.item(row, col)
+                    row_data.append(item.text() if item else "")
+                writer.writerow(row_data)
+
+    def export_pdf(self):
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
+        from reportlab.lib import colors
+        from PyQt6.QtWidgets import QFileDialog
+
+        path, _ = QFileDialog.getSaveFileName(self, "Save PDF", "report.pdf", "PDF Files (*.pdf)")
+        if not path: return
+
+        doc = SimpleDocTemplate(path)
+        data = []
+
+        headers = [self.table.horizontalHeaderItem(i).text() for i in range(self.table.columnCount())]
+        data.append(headers)
+
+        for row in range(self.table.rowCount()):
+            row_data = []
+            for col in range(self.table.columnCount()):
+                item = self.table.item(row, col)
+                row_data.append(item.text() if item else "")
+            data.append(row_data)
+
+        table = Table(data)
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.grey),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
+            ('GRID', (0,0), (-1,-1), 1, colors.black),
+        ]))
+        doc.build([table])

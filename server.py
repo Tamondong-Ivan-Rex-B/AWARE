@@ -367,6 +367,8 @@ def api_modify_professor(prof_id):
     cursor = db.cursor()
     try:
         if request.method == 'DELETE':
+            cursor.execute("DELETE FROM evaluation WHERE Session_ID IN (SELECT Session_ID FROM class_session WHERE Professor_ID = %s)", (prof_id,))
+            cursor.execute("DELETE FROM class_session WHERE Professor_ID = %s", (prof_id,))
             cursor.execute("DELETE FROM professor WHERE Professor_ID = %s", (prof_id,))
             db.commit()
             return jsonify({"status": "success", "message": "Professor deleted!"}), 200
@@ -413,6 +415,7 @@ def api_modify_guardian(g_id):
     cursor = db.cursor()
     try:
         if request.method == 'DELETE':
+            cursor.execute("UPDATE student SET Guardian_ID = NULL WHERE Guardian_ID = %s", (g_id,))
             cursor.execute("DELETE FROM guardian WHERE Guardian_ID = %s", (g_id,))
             db.commit()
             return jsonify({"status": "success", "message": "Guardian deleted!"}), 200
@@ -460,6 +463,8 @@ def api_modify_student(student_id):
     cursor = db.cursor()
     try:
         if request.method == 'DELETE':
+            cursor.execute("DELETE FROM evaluation WHERE Student_ID = %s", (student_id,))
+            cursor.execute("DELETE FROM enrollment WHERE Student_ID = %s", (student_id,))
             cursor.execute("DELETE FROM student WHERE Student_ID = %s", (student_id,))
             db.commit()
             return jsonify({"status": "success", "message": "Student deleted!"}), 200
@@ -507,6 +512,10 @@ def api_modify_course(course_code):
     cursor = db.cursor()
     try:
         if request.method == 'DELETE':
+            cursor.execute("DELETE FROM evaluation WHERE Session_ID IN (SELECT Session_ID FROM class_session WHERE Course_Code = %s)", (course_code,))
+            cursor.execute("DELETE FROM class_session WHERE Course_Code = %s", (course_code,))
+            cursor.execute("DELETE FROM class_schedule WHERE Course_Code = %s", (course_code,))
+            cursor.execute("DELETE FROM enrollment WHERE Course_Code = %s", (course_code,))
             cursor.execute("DELETE FROM course WHERE Course_Code = %s", (course_code,))
             db.commit()
             return jsonify({"status": "success", "message": "Course deleted!"}), 200
@@ -605,6 +614,7 @@ def api_modify_session(session_id):
     cursor = db.cursor()
     try:
         if request.method == 'DELETE':
+            cursor.execute("DELETE FROM evaluation WHERE Session_ID = %s", (session_id,))
             cursor.execute("DELETE FROM class_session WHERE Session_ID = %s", (session_id,))
             db.commit()
             return jsonify({"status": "success", "message": "Session deleted!"}), 200

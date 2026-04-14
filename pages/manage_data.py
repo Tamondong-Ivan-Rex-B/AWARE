@@ -75,6 +75,8 @@ class ManageDataWindow(QWidget):
         QTabBar::tab:selected { background: #6D28D9; color: white; border-color: #6D28D9; }
         """)
 
+        main_layout = QVBoxLayout()
+        
         self.tabs = QTabWidget()
         self.tabs.addTab(self.create_professors_tab(), "Professors")
         self.tabs.addTab(self.create_students_tab(), "Students")
@@ -90,7 +92,9 @@ class ManageDataWindow(QWidget):
         self.worker = None 
         
         # Manually trigger the first tab load
-        self.on_tab_changed(0) 
+        self.on_tab_changed(0)
+        main_layout.addWidget(self.tabs)
+        self.setLayout(main_layout)
 
     def on_tab_changed(self, index):
         if self.loaded_tabs[index]:

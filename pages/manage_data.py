@@ -2,7 +2,7 @@ import requests
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, 
     QPushButton, QTableWidget, QTableWidgetItem, QHeaderView, QMessageBox, QTabWidget,
-    QFormLayout, QComboBox
+    QFormLayout, QComboBox, QDialog, QDialogButtonBox
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QCursor
@@ -95,6 +95,96 @@ class ManageDataWindow(QWidget):
         self.on_tab_changed(0)
         main_layout.addWidget(self.tabs)
         self.setLayout(main_layout)
+    
+# ==========================================
+# POPUP DIALOG FOR ADDING PROFESSORS
+# ==========================================
+class AddProfessorDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Add New Professor")
+        self.resize(300, 200)
+
+        # QFormLayout makes perfect forms automatically!
+        layout = QFormLayout(self)
+        
+        # Create the text boxes
+        self.first_name_input = QLineEdit()
+        self.last_name_input = QLineEdit()
+        self.username_input = QLineEdit()
+        self.department_input = QLineEdit()
+        
+        self.password_input = QLineEdit()
+        self.password_input.setEchoMode(QLineEdit.EchoMode.Password) # Hides the password dots
+
+        # Add them to the form layout
+        layout.addRow("First Name:", self.first_name_input)
+        layout.addRow("Last Name:", self.last_name_input)
+        layout.addRow("Username:", self.username_input)
+        layout.addRow("Password:", self.password_input)
+        layout.addRow("Department:", self.department_input)
+
+        # Add Save and Cancel buttons
+        self.buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
+        self.buttons.accepted.connect(self.accept) # Triggers when they click Save
+        self.buttons.rejected.connect(self.reject) # Triggers when they click Cancel
+        layout.addWidget(self.buttons)
+
+    def get_data(self):
+        # This packages the typed text into a dictionary ready for the API
+        return {
+            "First_Name": self.first_name_input.text().strip(),
+            "Last_Name": self.last_name_input.text().strip(),
+            "Username": self.username_input.text().strip(),
+            "Password": self.password_input.text().strip(),
+            "Department": self.department_input.text().strip()
+        }
+
+# ==========================================
+# POPUP DIALOG FOR ADDING STUDENTS
+# ==========================================
+class AddStudentDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Add New Student")
+        self.resize(300, 200)
+
+        layout = QFormLayout(self)
+        
+        self.first_name_input = QLineEdit()
+        self.last_name_input = QLineEdit()
+        self.username_input = QLineEdit()
+        
+        self.password_input = QLineEdit()
+        self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
+        
+        self.guardian_id_input = QLineEdit()
+        self.guardian_id_input.setPlaceholderText("(Optional)")
+
+        layout.addRow("First Name:", self.first_name_input)
+        layout.addRow("Last Name:", self.last_name_input)
+        layout.addRow("Username:", self.username_input)
+        layout.addRow("Password:", self.password_input)
+        layout.addRow("Guardian ID:", self.guardian_id_input)
+
+        self.buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
+        self.buttons.accepted.connect(self.accept)
+        self.buttons.rejected.connect(self.reject)
+        layout.addWidget(self.buttons)
+
+    def get_data(self):
+        # We handle the optional Guardian ID carefully here
+        guardian_id = self.guardian_id_input.text().strip()
+        if not guardian_id:
+            guardian_id = None
+            
+        return {
+            "First_Name": self.first_name_input.text().strip(),
+            "Last_Name": self.last_name_input.text().strip(),
+            "Username": self.username_input.text().strip(),
+            "Password": self.password_input.text().strip(),
+            "Guardian_ID": guardian_id
+        }
 
     def on_tab_changed(self, index):
         if self.loaded_tabs[index]:
@@ -651,23 +741,70 @@ class ManageDataWindow(QWidget):
         tab = QWidget()
         layout = QVBoxLayout(tab)
         
-        # Create the Table
+        # ==========================================
+        # 1. NEW: THE CRUD BUTTONS
+        # ==========================================
+        button_layout = QHBoxLayout()
+        
+        self.btn_add_prof = QPushButton("➕ Add Professor")
+        self.btn_edit_prof = QPushButton("✏️ Edit Selected")
+        self.btn_delete_prof = QPushButton("🗑️ Delete Selected")
+        
+        # Add buttons to the row
+        button_layout.addWidget(self.btn_add_prof)
+        button_layout.addWidget(self.btn_edit_prof)
+        button_layout.addWidget(self.btn_delete_prof)
+        button_layout.addStretch() # This pushes all the buttons nicely to the left
+        
+        # Add the button row to the main tab layout
+        layout.addLayout(button_layout)
+        
+        # Connect the buttons to functions (we will make these below!)
+        self.btn_add_prof.clicked.connect(self.add_professor_clicked)
+        self.btn_delete_prof.clicked.connect(self.delete_professor_clicked)
+
+        # ==========================================
+        # 2. EXISTING: THE TABLE
+        # ==========================================
         self.prof_table = QTableWidget()
         self.prof_table.setColumnCount(4)
         self.prof_table.setHorizontalHeaderLabels(["ID", "First Name", "Last Name", "Department"])
+        self.prof_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows) # Select whole rows!
         
         layout.addWidget(self.prof_table)
+        
         return tab
 
     def create_students_tab(self):
         tab = QWidget()
         layout = QVBoxLayout(tab)
         
+        # 1. NEW: THE CRUD BUTTONS
+        button_layout = QHBoxLayout()
+        
+        self.btn_add_student = QPushButton("➕ Add Student")
+        self.btn_edit_student = QPushButton("✏️ Edit Selected")
+        self.btn_delete_student = QPushButton("🗑️ Delete Selected")
+        
+        button_layout.addWidget(self.btn_add_student)
+        button_layout.addWidget(self.btn_edit_student)
+        button_layout.addWidget(self.btn_delete_student)
+        button_layout.addStretch() 
+        
+        layout.addLayout(button_layout)
+        
+        # Connect buttons
+        self.btn_add_student.clicked.connect(self.add_student_clicked)
+        self.btn_delete_student.clicked.connect(self.delete_student_clicked)
+
+        # 2. EXISTING: THE TABLE
         self.student_table = QTableWidget()
         self.student_table.setColumnCount(4)
         self.student_table.setHorizontalHeaderLabels(["ID", "First Name", "Last Name", "Guardian"])
+        self.student_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         
         layout.addWidget(self.student_table)
+        
         return tab
 
     def create_courses_tab(self):
@@ -705,6 +842,129 @@ class ManageDataWindow(QWidget):
         for row, course in enumerate(data):
             self.course_table.setItem(row, 0, QTableWidgetItem(str(course.get("Course_Code", ""))))
             self.course_table.setItem(row, 1, QTableWidgetItem(course.get("Course_Title", "")))
+    
+    # ==========================================
+    # HELPER FUNCTION: REFRESH TABLE
+    # ==========================================
+    def refresh_tab(self, index):
+        # We set the tracker back to False so the app knows it needs to re-fetch the data
+        self.loaded_tabs[index] = False 
+        self.on_tab_changed(index) 
+        
+    def add_professor_clicked(self):
+        # 1. Open the popup dialog
+        dialog = AddProfessorDialog(self)
+        
+        # 2. Wait for them to click 'Save'
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            new_prof_data = dialog.get_data()
+            
+            # Security check: Make sure they didn't leave critical boxes empty
+            if not new_prof_data["First_Name"] or not new_prof_data["Password"]:
+                QMessageBox.warning(self, "Error", "First Name and Password are required!")
+                return
+                
+            # 3. Send the data to your Render Server
+            try:
+                url = f"{BASE_URL}/api/admin/professors"
+                response = requests.post(url, json=new_prof_data)
+                response.raise_for_status() # Check for server errors
+                
+                QMessageBox.information(self, "Success", "Professor added successfully!")
+                
+                # 4. Refresh the Professors tab (Index 0) to show the new person
+                self.refresh_tab(0) 
+                
+            except Exception as e:
+                QMessageBox.critical(self, "Server Error", f"Failed to add professor.\n{e}")
+        
+    def delete_professor_clicked(self):
+        selected_rows = self.prof_table.selectionModel().selectedRows()
+        
+        if not selected_rows:
+            QMessageBox.warning(self, "Selection Error", "Please click on a professor row to delete first!")
+            return
+            
+        row_index = selected_rows[0].row()
+        prof_id = self.prof_table.item(row_index, 0).text()
+        prof_name = self.prof_table.item(row_index, 2).text() # Gets the Last Name
+        
+        # 1. Ask for confirmation so they don't accidentally delete someone
+        confirm = QMessageBox.question(
+            self, 
+            "Confirm Delete", 
+            f"Are you absolutely sure you want to delete Professor {prof_name}?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        
+        if confirm == QMessageBox.StandardButton.Yes:
+            # 2. Send the DELETE command to Render
+            try:
+                url = f"{BASE_URL}/api/admin/professors/{prof_id}"
+                response = requests.delete(url)
+                response.raise_for_status()
+                
+                QMessageBox.information(self, "Success", "Professor deleted!")
+                
+                # 3. Refresh the Professors tab
+                self.refresh_tab(0)
+                
+            except Exception as e:
+                QMessageBox.critical(self, "Server Error", f"Failed to delete.\n{e}")
+                
+    # ==========================================
+    # STUDENT CRUD ACTIONS
+    # ==========================================
+    def add_student_clicked(self):
+        dialog = AddStudentDialog(self)
+        
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            new_student_data = dialog.get_data()
+            
+            if not new_student_data["First_Name"] or not new_student_data["Password"]:
+                QMessageBox.warning(self, "Error", "First Name and Password are required!")
+                return
+                
+            try:
+                url = f"{BASE_URL}/api/admin/students"
+                response = requests.post(url, json=new_student_data)
+                response.raise_for_status() 
+                
+                QMessageBox.information(self, "Success", "Student added successfully!")
+                self.refresh_tab(1) # Refresh the Students tab (Index 1)
+                
+            except Exception as e:
+                QMessageBox.critical(self, "Server Error", f"Failed to add student.\n{e}")
+        
+    def delete_student_clicked(self):
+        selected_rows = self.student_table.selectionModel().selectedRows()
+        
+        if not selected_rows:
+            QMessageBox.warning(self, "Selection Error", "Please click on a student row to delete first!")
+            return
+            
+        row_index = selected_rows[0].row()
+        student_id = self.student_table.item(row_index, 0).text()
+        student_name = self.student_table.item(row_index, 2).text() # Last Name
+        
+        confirm = QMessageBox.question(
+            self, 
+            "Confirm Delete", 
+            f"Are you sure you want to delete Student {student_name}?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        
+        if confirm == QMessageBox.StandardButton.Yes:
+            try:
+                url = f"{BASE_URL}/api/admin/students/{student_id}"
+                response = requests.delete(url)
+                response.raise_for_status()
+                
+                QMessageBox.information(self, "Success", "Student deleted!")
+                self.refresh_tab(1)
+                
+            except Exception as e:
+                QMessageBox.critical(self, "Server Error", f"Failed to delete student.\n{e}")
 
     # ==========================================================
     # DATA LOADER (SMART SEARCH)
@@ -806,5 +1066,3 @@ class ManageDataWindow(QWidget):
 
         except Exception as e:
             print("Error loading data:", e)
-            
-        

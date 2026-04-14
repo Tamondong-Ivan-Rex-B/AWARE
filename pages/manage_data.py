@@ -107,20 +107,21 @@ class ManageDataWindow(QWidget):
         if not endpoint:
             return
 
-        # Optional UI Polish: Show a loading message in your table before starting!
-        self.show_loading_state(index)
+        # Show loading message
+        if index == 0:
+            self.prof_table.setRowCount(0) # Clear existing
+            self.prof_table.setRowCount(1)
+            self.prof_table.setItem(0, 0, QTableWidgetItem("Loading..."))
+        # Add similar loading logic for students and courses if you want
 
-        # Hire the worker
         self.worker = FetchDataWorker(index, endpoint)
         self.worker.finished_success.connect(self.handle_data_loaded)
         self.worker.finished_error.connect(self.handle_data_error)
         self.worker.start()
 
     def handle_data_loaded(self, tab_index, data):
-        # Mark as permanently loaded for this session
         self.loaded_tabs[tab_index] = True
         
-        # Inject the data into the correct table
         if tab_index == 0:
             self.populate_professors_table(data)
         elif tab_index == 1:
@@ -129,12 +130,7 @@ class ManageDataWindow(QWidget):
             self.populate_courses_table(data)
 
     def handle_data_error(self, tab_index, error_msg):
-        print(f"Failed to load tab {tab_index}: {error_msg}")
-        # Show an error message to the user in the table
-        
-    def show_loading_state(self, tab_index):
-        # You could clear the existing table and insert one row saying "Loading from cloud..."
-        pass
+        print(f"Error: {error_msg}")
     
         main_layout = QVBoxLayout(self)
         
@@ -647,6 +643,64 @@ class ManageDataWindow(QWidget):
         if sel and QMessageBox.question(self, "Warning", "Delete?") == QMessageBox.StandardButton.Yes:
             if requests.delete(f"https://aware-api.onrender.com/api/admin/evaluations/{sel[0].text()}").status_code == 200: self.load_all_data()
 
+    def create_professors_tab(self):
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+        
+        # Create the Table
+        self.prof_table = QTableWidget()
+        self.prof_table.setColumnCount(4)
+        self.prof_table.setHorizontalHeaderLabels(["ID", "First Name", "Last Name", "Department"])
+        
+        layout.addWidget(self.prof_table)
+        return tab
+
+    def create_students_tab(self):
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+        
+        self.student_table = QTableWidget()
+        self.student_table.setColumnCount(4)
+        self.student_table.setHorizontalHeaderLabels(["ID", "First Name", "Last Name", "Guardian"])
+        
+        layout.addWidget(self.student_table)
+        return tab
+
+    def create_courses_tab(self):
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+        
+        self.course_table = QTableWidget()
+        self.course_table.setColumnCount(2)
+        self.course_table.setHorizontalHeaderLabels(["Code", "Title"])
+        
+        layout.addWidget(self.course_table)
+        return tab
+    
+    # ==========================================
+    # DATA POPULATOR FUNCTIONS
+    # ==========================================
+    def populate_professors_table(self, data):
+        self.prof_table.setRowCount(len(data))
+        for row, prof in enumerate(data):
+            self.prof_table.setItem(row, 0, QTableWidgetItem(str(prof.get("Professor_ID", ""))))
+            self.prof_table.setItem(row, 1, QTableWidgetItem(prof.get("First_Name", "")))
+            self.prof_table.setItem(row, 2, QTableWidgetItem(prof.get("Last_Name", "")))
+            self.prof_table.setItem(row, 3, QTableWidgetItem(prof.get("Department", "")))
+
+    def populate_students_table(self, data):
+        self.student_table.setRowCount(len(data))
+        for row, student in enumerate(data):
+            self.student_table.setItem(row, 0, QTableWidgetItem(str(student.get("Student_ID", ""))))
+            self.student_table.setItem(row, 1, QTableWidgetItem(student.get("First_Name", "")))
+            self.student_table.setItem(row, 2, QTableWidgetItem(student.get("Last_Name", "")))
+            self.student_table.setItem(row, 3, QTableWidgetItem(student.get("Guardian_Name", "")))
+
+    def populate_courses_table(self, data):
+        self.course_table.setRowCount(len(data))
+        for row, course in enumerate(data):
+            self.course_table.setItem(row, 0, QTableWidgetItem(str(course.get("Course_Code", ""))))
+            self.course_table.setItem(row, 1, QTableWidgetItem(course.get("Course_Title", "")))
 
     # ==========================================================
     # DATA LOADER (SMART SEARCH)
@@ -748,3 +802,5 @@ class ManageDataWindow(QWidget):
 
         except Exception as e:
             print("Error loading data:", e)
+            
+        

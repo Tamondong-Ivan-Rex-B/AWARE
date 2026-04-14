@@ -1,3 +1,4 @@
+import os
 import requests
 import pyqtgraph as pg
 from PyQt6.QtWidgets import (
@@ -5,14 +6,10 @@ from PyQt6.QtWidgets import (
     QFrame, QPushButton, QHBoxLayout, QTabWidget, QMessageBox, QComboBox
 )
 from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal
-from PyQt6.QtGui import QCursor
+from PyQt6.QtGui import QCursor, QPixmap, QFont
 from config import BASE_URL
 
-# ======================
-# 1. API WORKER THREAD 
-# ======================
 class AnalyticsWorker(QThread):
-    # Sends back (evaluations_list, grades_list) when successful
     finished_success = pyqtSignal(list, list) 
     finished_error = pyqtSignal(str)
 
@@ -23,13 +20,10 @@ class AnalyticsWorker(QThread):
     def run(self):
         try:
             params = {'prof_id': self.prof_id} if self.prof_id else {}
-            
-            # Fetch Evaluations
             res_dash = requests.get(f"{BASE_URL}/api/get_dashboard_data", params=params, timeout=10)
             res_dash.raise_for_status()
             evaluations = res_dash.json().get("evaluations", [])
             
-            # Fetch Grades
             res_grades = requests.get(f"{BASE_URL}/api/analytics/grades_vs_evals", params=params, timeout=10)
             res_grades.raise_for_status()
             grades = res_grades.json().get("data", [])
@@ -38,60 +32,37 @@ class AnalyticsWorker(QThread):
         except Exception as e:
             self.finished_error.emit(str(e))
 
-# ==========================================
-# 2. MAIN ANALYTICS WINDOW
-# ==========================================
 class AnalyticsWindow(QWidget):
     def __init__(self, prof_id=None):
         super().__init__()
         self.prof_id = prof_id
-
         self.setWindowTitle("A.W.A.R.E. Analytics")
         self.resize(1000, 700)
         self.setObjectName("Background")
 
         self.all_evaluations = []
         self.all_grade_data = []
-        self.worker = None # Initialize worker variable
+        self.worker = None 
+        
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        parent_dir = os.path.dirname(current_dir)
+        logo_path = os.path.join(parent_dir, "static", "images", "AWARE-icon.jpg")
 
         self.setStyleSheet("""
         #Background { background-color: white; }
         QLabel#Title { color: black; font-size: 20px; font-weight: bold; }
         QLabel#CardTitle { color: black; font-size: 14px; font-weight: bold; margin-bottom: 5px; }
-        
-        QComboBox {
-            background-color: white;
-            color: #0f172a;
-            border: 1px solid #cbd5e1;
-            border-radius: 6px;
-            padding: 6px 12px;
-            font-size: 13px;
-            min-width: 150px;
-        }
+        QComboBox { background-color: white; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 12px; font-size: 13px; min-width: 150px; }
         QComboBox:hover { border: 1px solid #94a3b8; }
-        QComboBox QAbstractItemView {
-            background-color: white;
-            color: #0f172a;
-            selection-background-color: #f1f5f9;
-            selection-color: #0f172a;
-            border: 1px solid #cbd5e1;
-        }
-        
+        QComboBox QAbstractItemView { background-color: white; color: #0f172a; selection-background-color: #f1f5f9; selection-color: #0f172a; border: 1px solid #cbd5e1; }
         QTabWidget::pane { border: 1px solid #e2e8f0; background: white; border-radius: 8px; }
-        
-        QTabBar::tab {
-            background: #f1f5f9; color: #64748b; padding: 10px 15px; 
-            border: 1px solid #e2e8f0; border-bottom-color: #e2e8f0;
-            border-top-left-radius: 8px; border-top-right-radius: 8px;
-            font-weight: bold; margin-right: 2px; font-size: 12px;
-        }
+        QTabBar::tab { background: #f1f5f9; color: #64748b; padding: 10px 15px; border: 1px solid #e2e8f0; border-bottom-color: #e2e8f0; border-top-left-radius: 8px; border-top-right-radius: 8px; font-weight: bold; margin-right: 2px; font-size: 12px; }
         QTabBar::tab:selected { background: #6D28D9; color: white; border-color: #6D28D9; }
         QTabBar::tab:hover:!selected { background: #e2e8f0; }
         """)
 
         main_layout = QVBoxLayout(self)
 
-        # --- MULTI-FILTER LAYOUT ---
         self.course_filter = QComboBox()
         self.course_filter.addItem("All Courses")
         self.course_filter.currentIndexChanged.connect(self.update_plots)
@@ -99,8 +70,7 @@ class AnalyticsWindow(QWidget):
         self.prof_filter = QComboBox()
         self.prof_filter.addItem("All Professors")
         self.prof_filter.currentIndexChanged.connect(self.update_plots)
-        if self.prof_id: 
-            self.prof_filter.hide() # Hide this filter entirely if logged in as Professor
+        if self.prof_id: self.prof_filter.hide() 
 
         self.week_filter = QComboBox()
         self.week_filter.addItem("All Weeks")
@@ -109,16 +79,26 @@ class AnalyticsWindow(QWidget):
         filter_layout = QHBoxLayout()
         filter_layout.addWidget(QLabel("<b>Filters:</b>"))
         filter_layout.addWidget(self.course_filter)
-        if not self.prof_id:
-            filter_layout.addWidget(self.prof_filter) # Only Admin gets to see this
+        if not self.prof_id: filter_layout.addWidget(self.prof_filter) 
         filter_layout.addWidget(self.week_filter)
 
         # --- TOP NAVIGATION ---
         top_layout = QHBoxLayout()
-        title = QLabel("📊 Advanced Diagnostics")
+        
+        # NEW: Logo replacing the chart emoji
+        nav_logo = QLabel()
+        pixmap = QPixmap(logo_path)
+        if not pixmap.isNull():
+            nav_logo.setPixmap(pixmap.scaled(35, 35, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+        nav_logo.setStyleSheet("border: 1px solid navy; border-radius: 5px;")
+        
+        title = QLabel("Advanced Diagnostics")
         title.setObjectName("Title")
 
-        # Legend / Help Button
+        title_container = QHBoxLayout()
+        title_container.addWidget(nav_logo)
+        title_container.addWidget(title)
+
         help_btn = QPushButton("ℹ️ Legend / Help")
         help_btn.setStyleSheet("background: #e0f7fa; border: 1px solid #b2ebf2; padding: 5px 15px; border-radius: 5px; color: #00838f; font-weight: bold;")
         help_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
@@ -130,7 +110,7 @@ class AnalyticsWindow(QWidget):
         back_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         back_btn.clicked.connect(self.close)
 
-        top_layout.addWidget(title)
+        top_layout.addLayout(title_container)
         top_layout.addStretch()
         top_layout.addLayout(filter_layout)
         top_layout.addWidget(help_btn)
@@ -139,7 +119,7 @@ class AnalyticsWindow(QWidget):
         self.tabs = QTabWidget()
 
         # ==========================================
-        # TAB 1: STUDENT OUTCOMES
+        # TABS SETUP
         # ==========================================
         tab_outcomes = QWidget()
         layout_outcomes = QVBoxLayout(tab_outcomes)
@@ -154,9 +134,6 @@ class AnalyticsWindow(QWidget):
         layout_outcomes.addWidget(self.scatter_graph)
         self.tabs.addTab(tab_outcomes, "Outcomes")
 
-        # ==========================================
-        # TAB 2: BURNOUT DETECTOR
-        # ==========================================
         tab_burnout = QWidget()
         layout_burnout = QVBoxLayout(tab_burnout)
         layout_burnout.addWidget(QLabel("<b>Burnout Detector:</b> Study Hours vs. Comprehension", objectName="CardTitle"))
@@ -170,9 +147,6 @@ class AnalyticsWindow(QWidget):
         layout_burnout.addWidget(self.burnout_graph)
         self.tabs.addTab(tab_burnout, "Burnout Detector")
 
-        # ==========================================
-        # TAB 3: SYLLABUS BOTTLENECK
-        # ==========================================
         tab_bottleneck = QWidget()
         layout_bottleneck = QVBoxLayout(tab_bottleneck)
         layout_bottleneck.addWidget(QLabel("<b>Syllabus Bottleneck:</b> Clarity & Comprehension by Week", objectName="CardTitle"))
@@ -186,9 +160,6 @@ class AnalyticsWindow(QWidget):
         layout_bottleneck.addWidget(self.bottleneck_graph)
         self.tabs.addTab(tab_bottleneck, "Syllabus Bottleneck")
 
-        # ==========================================
-        # TAB 4: PACING SWEET SPOT
-        # ==========================================
         tab_pacing = QWidget()
         layout_pacing = QVBoxLayout(tab_pacing)
         layout_pacing.addWidget(QLabel("<b>Pacing Sweet Spot:</b> How Course Speed Affects Engagement", objectName="CardTitle"))
@@ -202,9 +173,6 @@ class AnalyticsWindow(QWidget):
         layout_pacing.addWidget(self.pacing_graph)
         self.tabs.addTab(tab_pacing, "Pacing Sweet Spot")
 
-        # ==========================================
-        # TAB 5: ENGAGEMENT TRENDS
-        # ==========================================
         tab_engagement = QWidget()
         layout_engagement = QVBoxLayout(tab_engagement)
         layout_engagement.addWidget(QLabel("<b>Engagement:</b> Trend Over Recent Submissions", objectName="CardTitle"))
@@ -216,9 +184,6 @@ class AnalyticsWindow(QWidget):
         layout_engagement.addWidget(self.line_graph)
         self.tabs.addTab(tab_engagement, "Engagement")
 
-        # ==========================================
-        # TAB 6: CLARITY OVERVIEW
-        # ==========================================
         tab_clarity = QWidget()
         layout_clarity = QVBoxLayout(tab_clarity)
         layout_clarity.addWidget(QLabel("<b>Clarity Overview:</b> Average Clarity Ratings", objectName="CardTitle"))
@@ -230,7 +195,6 @@ class AnalyticsWindow(QWidget):
         layout_clarity.addWidget(self.bar_graph)
         self.tabs.addTab(tab_clarity, "Clarity")
 
-        # --- ASSEMBLE ---
         main_layout.addLayout(top_layout)
         main_layout.addWidget(self.tabs)
 
@@ -240,55 +204,23 @@ class AnalyticsWindow(QWidget):
         self.timer.start(10000)
 
     def show_help(self):
-        """Displays instructions based on the currently active tab."""
         current_tab_name = self.tabs.tabText(self.tabs.currentIndex())
-        
         instructions = {
-            "Outcomes": "<b>How to read this chart:</b><br><br>"
-                        "• <b>Top-Right:</b> All Good (High grade, high understanding).<br>"
-                        "• <b>Bottom-Left:</b> Needs Tutoring (Low grade, low understanding).<br>"
-                        "• <b>Top-Left:</b> Imposter Syndrome (High grade, but feels lost. Needs reassurance).<br>"
-                        "• <b>Bottom-Right:</b> Overconfident (Failing, but thinks they understand it. Needs an intervention).",
-            
-            "Burnout Detector": "<b>How to read this chart:</b><br><br>"
-                                "This spots students using ineffective study methods.<br><br>"
-                                "• Look at the <b>Bottom-Right quadrant</b> (High hours, low score).<br>"
-                                "• These students are working extremely hard but still failing to understand the material. They are at the highest risk of burnout.",
-            
-            "Syllabus Bottleneck": "<b>How to read this chart:</b><br><br>"
-                                   "• <b>Blue Line:</b> How clearly the Professor explained it.<br>"
-                                   "• <b>Orange Line:</b> How well the Students understood it.<br><br>"
-                                   "Look for sudden drops in the lines. If both lines drop in Week 5, that specific topic was too difficult and needs a review session.",
-            
-            "Pacing Sweet Spot": "<b>How to read this chart:</b><br><br>"
-                                 "This proves how your lecture speed affects student attention.<br><br>"
-                                 "You are looking for an inverted 'U' shape. Ideally, the highest engagement should happen when pacing is a 3 (Perfect).",
-            
-            "Engagement": "<b>How to read this chart:</b><br><br>"
-                          "A simple chronological line showing the class's focus. If the line trends downward over several weeks, you may need to introduce more interactive activities.",
-            
-            "Clarity": "<b>How to read this chart:</b><br><br>"
-                       "Displays average clarity. The bars are color-coded:<br>"
-                       "• <b>Green:</b> Excellent (4-5)<br>"
-                       "• <b>Yellow/Orange:</b> Average (2-3)<br>"
-                       "• <b>Red:</b> Poor (Needs immediate review)"
+            "Outcomes": "<b>How to read this chart:</b><br><br>• <b>Top-Right:</b> All Good (High grade, high understanding).<br>• <b>Bottom-Left:</b> Needs Tutoring (Low grade, low understanding).<br>• <b>Top-Left:</b> Imposter Syndrome (High grade, but feels lost).<br>• <b>Bottom-Right:</b> Overconfident (Failing, but thinks they understand it).",
+            "Burnout Detector": "<b>How to read this chart:</b><br><br>Spots students using ineffective study methods.<br>• Look at the <b>Bottom-Right quadrant</b> (High hours, low score).<br>• These students are working extremely hard but failing to understand.",
+            "Syllabus Bottleneck": "<b>How to read this chart:</b><br><br>• <b>Blue Line:</b> Clarity.<br>• <b>Orange Line:</b> Comprehension.<br>Look for sudden drops in both lines to spot difficult topics.",
+            "Pacing Sweet Spot": "<b>How to read this chart:</b><br><br>Looking for an inverted 'U' shape where engagement is highest when pacing is exactly 3 (Perfect).",
+            "Engagement": "<b>How to read this chart:</b><br><br>Chronological line showing class focus over time.",
+            "Clarity": "<b>How to read this chart:</b><br><br>Average clarity ratings, color coded from Red (Poor) to Green (Excellent)."
         }
-
         msg = QMessageBox(self)
         msg.setWindowTitle(f"Legend: {current_tab_name}")
         msg.setText(instructions.get(current_tab_name, "No instructions available for this tab."))
         msg.setIcon(QMessageBox.Icon.Information)
         msg.exec()
 
-    # ==========================================
-    # DATA HANDLING LOGIC
-    # ==========================================
     def fetch_data(self):
-        """Starts the background worker to fetch data smoothly."""
-        # Prevent starting a new thread if the old one is still downloading!
-        if self.worker is not None and self.worker.isRunning():
-            return
-
+        if self.worker is not None and self.worker.isRunning(): return
         self.worker = AnalyticsWorker(self.prof_id)
         self.worker.finished_success.connect(self.handle_data_loaded)
         self.worker.finished_error.connect(self.handle_data_error)
@@ -298,21 +230,16 @@ class AnalyticsWindow(QWidget):
         print(f"Analytics Worker Error: {error_msg}")
 
     def handle_data_loaded(self, evaluations, grades):
-        """Receives data from the worker and safely updates the UI."""
         self.all_evaluations = evaluations
         self.all_grade_data = grades
-        
-        # Capture current selections to prevent resetting while viewing
         curr_course = self.course_filter.currentText()
         curr_prof = self.prof_filter.currentText()
         curr_week = self.week_filter.currentText()
         
-        # Find all unique items
         unique_courses = set([e.get("Course_Code") for e in self.all_evaluations if e.get("Course_Code")])
         unique_profs = set([e.get("Professor_Name") for e in self.all_evaluations if e.get("Professor_Name")])
         unique_weeks = set([f"Week {e.get('Week_Number')}" for e in self.all_evaluations if e.get("Week_Number", 0) > 0])
         
-        # Populate Course Filter
         self.course_filter.blockSignals(True)
         self.course_filter.clear()
         self.course_filter.addItem("All Courses")
@@ -320,7 +247,6 @@ class AnalyticsWindow(QWidget):
         if self.course_filter.findText(curr_course) >= 0: self.course_filter.setCurrentText(curr_course)
         self.course_filter.blockSignals(False)
 
-        # Populate Professor Filter
         self.prof_filter.blockSignals(True)
         self.prof_filter.clear()
         self.prof_filter.addItem("All Professors")
@@ -328,7 +254,6 @@ class AnalyticsWindow(QWidget):
         if self.prof_filter.findText(curr_prof) >= 0: self.prof_filter.setCurrentText(curr_prof)
         self.prof_filter.blockSignals(False)
 
-        # Populate Week Filter (Sorted Numerically)
         self.week_filter.blockSignals(True)
         self.week_filter.clear()
         self.week_filter.addItem("All Weeks")
@@ -337,29 +262,22 @@ class AnalyticsWindow(QWidget):
         if self.week_filter.findText(curr_week) >= 0: self.week_filter.setCurrentText(curr_week)
         self.week_filter.blockSignals(False)
 
-        # Push new data into the plots
         self.update_plots()
 
     def update_plots(self):
-        """Filters the data and redraws all 6 graphs."""
         selected_course = self.course_filter.currentText()
         selected_prof = self.prof_filter.currentText()
         selected_week = self.week_filter.currentText()
         
-        # 1. Filter the Evaluations (Used for Tabs 2, 3, 4, 5, 6)
         filtered_evals = []
         for e in self.all_evaluations:
-            if selected_course != "All Courses" and e.get("Course_Code") != selected_course:
-                continue
-            if not self.prof_id and selected_prof != "All Professors" and e.get("Professor_Name") != selected_prof:
-                continue
+            if selected_course != "All Courses" and e.get("Course_Code") != selected_course: continue
+            if not self.prof_id and selected_prof != "All Professors" and e.get("Professor_Name") != selected_prof: continue
             if selected_week != "All Weeks":
                 target_week_num = int(selected_week.replace("Week ", ""))
-                if e.get("Week_Number") != target_week_num:
-                    continue
+                if e.get("Week_Number") != target_week_num: continue
             filtered_evals.append(e)
 
-        # 2. Filter the Grades (Used for Tab 1: Outcomes)
         allowed_courses_for_prof = set()
         if selected_prof != "All Professors":
             allowed_courses_for_prof = set([e.get("Course_Code") for e in self.all_evaluations if e.get("Professor_Name") == selected_prof])
@@ -367,34 +285,26 @@ class AnalyticsWindow(QWidget):
         filtered_grades = []
         for g in self.all_grade_data:
             c = g.get("Course_Code")
-            if selected_course != "All Courses" and c != selected_course:
-                continue
-            if selected_prof != "All Professors" and c not in allowed_courses_for_prof:
-                continue
+            if selected_course != "All Courses" and c != selected_course: continue
+            if selected_prof != "All Professors" and c not in allowed_courses_for_prof: continue
             filtered_grades.append(g)
 
-        # ---------------------------------------------------------
-        # 1. OUTCOMES (Scatter: Grades vs Comprehension)
-        # ---------------------------------------------------------
+        # 1. OUTCOMES
         self.scatter_graph.clear()
         x_comp, y_grade = [], []
         for row in filtered_grades:
             if row.get("Current_Grade") is not None and row.get("Avg_Comprehension") is not None:
                 x_comp.append(float(row["Avg_Comprehension"]))
                 y_grade.append(float(row["Current_Grade"]))
-
         if x_comp and y_grade:
             scatter = pg.ScatterPlotItem(x=x_comp, y=y_grade, size=12, pen=pg.mkPen(None), brush=pg.mkBrush("#6D28D9"))
             self.scatter_graph.addItem(scatter)
             self.scatter_graph.addItem(pg.InfiniteLine(pos=3, angle=90, pen=pg.mkPen('gray', style=Qt.PenStyle.DashLine)))
             self.scatter_graph.addItem(pg.InfiniteLine(pos=75, angle=0, pen=pg.mkPen('gray', style=Qt.PenStyle.DashLine)))
 
-        # ---------------------------------------------------------
-        # 2. BURNOUT DETECTOR (Scatter: Hours vs Comprehension)
-        # ---------------------------------------------------------
+        # 2. BURNOUT
         self.burnout_graph.clear()
-        b_hours, b_comp = [], []
-        total_hours = 0
+        b_hours, b_comp, total_hours = [], [], 0
         for e in filtered_evals:
             try:
                 h = float(e.get("Study_Hours") or 0)
@@ -404,16 +314,13 @@ class AnalyticsWindow(QWidget):
                     b_comp.append(c)
                     total_hours += h
             except: pass
-
         if b_hours:
             avg_hours = total_hours / len(b_hours)
             scatter_burnout = pg.ScatterPlotItem(x=b_hours, y=b_comp, size=14, pen=pg.mkPen('black'), brush=pg.mkBrush("#EF4444"))
             self.burnout_graph.addItem(scatter_burnout)
             self.burnout_graph.addItem(pg.InfiniteLine(pos=avg_hours, angle=90, pen=pg.mkPen('blue', style=Qt.PenStyle.DashLine, width=2)))
 
-        # ---------------------------------------------------------
-        # 3. SYLLABUS BOTTLENECK (Line: Clarity & Comp by Week)
-        # ---------------------------------------------------------
+        # 3. BOTTLENECK
         self.bottleneck_graph.clear()
         week_data = {}
         for e in filtered_evals:
@@ -422,26 +329,21 @@ class AnalyticsWindow(QWidget):
                 if w not in week_data: week_data[w] = {'clarity': [], 'comp': []}
                 week_data[w]['clarity'].append(float(e.get("Clarity_Score", 0)))
                 week_data[w]['comp'].append(float(e.get("Comprehension_Score", 0)))
-
         if week_data:
             sorted_weeks = sorted(list(week_data.keys()))
             avg_clarity = [sum(week_data[w]['clarity'])/len(week_data[w]['clarity']) for w in sorted_weeks]
             avg_comp = [sum(week_data[w]['comp'])/len(week_data[w]['comp']) for w in sorted_weeks]
-
-            self.bottleneck_graph.plot(sorted_weeks, avg_clarity, pen=pg.mkPen(color="#3B82F6", width=4), symbol='o', symbolBrush="#3B82F6", name="Clarity")
-            self.bottleneck_graph.plot(sorted_weeks, avg_comp, pen=pg.mkPen(color="#F97316", width=4), symbol='s', symbolBrush="#F97316", name="Comprehension")
+            self.bottleneck_graph.plot(sorted_weeks, avg_clarity, pen=pg.mkPen(color="#3B82F6", width=4), symbol='o', symbolBrush="#3B82F6")
+            self.bottleneck_graph.plot(sorted_weeks, avg_comp, pen=pg.mkPen(color="#F97316", width=4), symbol='s', symbolBrush="#F97316")
             self.bottleneck_graph.getAxis('bottom').setTicks([list(zip(sorted_weeks, [f"Wk {w}" for w in sorted_weeks]))])
 
-        # ---------------------------------------------------------
-        # 4. PACING SWEET SPOT (Bar: Pacing Score vs Avg Engagement)
-        # ---------------------------------------------------------
+        # 4. PACING
         self.pacing_graph.clear()
         pacing_groups = {1: [], 2: [], 3: [], 4: [], 5: []}
         for e in filtered_evals:
             p = int(e.get("Pacing_Score", 0))
             eng = float(e.get("Engagement_Score", 0))
             if p in pacing_groups and eng > 0: pacing_groups[p].append(eng)
-
         p_x, p_heights, p_brushes = [], [], []
         for p_score in range(1, 6):
             p_x.append(p_score)
@@ -449,49 +351,36 @@ class AnalyticsWindow(QWidget):
             if p_score == 3: p_brushes.append(pg.mkBrush("#22C55E"))
             elif p_score in [2, 4]: p_brushes.append(pg.mkBrush("#FBBF24"))
             else: p_brushes.append(pg.mkBrush("#EF4444"))
-
         pacing_bars = pg.BarGraphItem(x=p_x, height=p_heights, width=0.6, brushes=p_brushes, pen=pg.mkPen("black"))
         self.pacing_graph.addItem(pacing_bars)
         self.pacing_graph.getAxis('bottom').setTicks([[(1, "1(Slow)"), (2, "2"), (3, "3(Perfect)"), (4, "4"), (5, "5(Fast)")]])
 
-        # ---------------------------------------------------------
-        # 5. ENGAGEMENT TRENDS (Line)
-        # ---------------------------------------------------------
+        # 5. ENGAGEMENT TRENDS
         self.line_graph.clear()
         week_eng = {}
-        
-        # Group engagement scores by their ACTUAL week number
         for e in filtered_evals:
             w = e.get("Week_Number", 0)
             eng_val = float(e.get("Engagement_Score", 0))
             if w > 0 and eng_val > 0:
                 if w not in week_eng: week_eng[w] = []
                 week_eng[w].append(eng_val)
-
         if week_eng:
-            # Sort the actual weeks (e.g., Week 1, Week 13, Week 16)
             sorted_weeks = sorted(list(week_eng.keys()))
-            # Calculate the average engagement for each of those weeks
             avg_eng = [sum(week_eng[w])/len(week_eng[w]) for w in sorted_weeks]
-
             self.line_graph.plot(sorted_weeks, avg_eng, pen=pg.mkPen(color="#F6C85F", width=4), symbol='o', symbolBrush="#F6C85F")
             self.line_graph.getAxis('bottom').setTicks([list(zip(sorted_weeks, [f"Wk {w}" for w in sorted_weeks]))])
 
-        # ---------------------------------------------------------
-        # 6. CLARITY OVERVIEW (Bar)
-        # ---------------------------------------------------------
+        # 6. CLARITY
         self.bar_graph.clear()
         course_scores = {}
         for e in filtered_evals:
             course = e.get("Course_Code") or "Unknown"
             if course not in course_scores: course_scores[course] = []
             course_scores[course].append(float(e.get("Clarity_Score", 0)))
-        
         if course_scores:
             courses = list(course_scores.keys())
             averages = [sum(scores)/len(scores) for scores in course_scores.values()]
             x = list(range(len(courses)))
-            
             bar_brushes = []
             for score in averages:
                 if score < 2: bar_brushes.append(pg.mkBrush("#EF4444"))
@@ -499,7 +388,6 @@ class AnalyticsWindow(QWidget):
                 elif score < 4: bar_brushes.append(pg.mkBrush("#FBBF24"))
                 elif score < 4.5: bar_brushes.append(pg.mkBrush("#84CC16"))
                 else: bar_brushes.append(pg.mkBrush("#22C55E"))
-
             bars = pg.BarGraphItem(x=x, height=averages, width=0.6, brushes=bar_brushes, pen=pg.mkPen("black"))
             self.bar_graph.addItem(bars)
             self.bar_graph.getAxis('bottom').setTicks([list(zip(x, courses))])

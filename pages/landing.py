@@ -1,6 +1,7 @@
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont, QCursor
+from config import BASE_URL
 
 class LandingPage(QWidget):
     def __init__(self, main_window):

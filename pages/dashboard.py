@@ -4,6 +4,7 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBo
                              QHeaderView, QMessageBox, QMenu)
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont, QCursor
+from config import BASE_URL
 
 class DashboardPage(QWidget):
     def __init__(self, main_window):
@@ -188,7 +189,7 @@ class DashboardPage(QWidget):
             if hasattr(self, 'current_user') and self.current_user.get("role") == "professor":
                 params['prof_id'] = self.current_user['user']['id']
                 
-            response = requests.get("https://aware-api.onrender.com/api/get_dashboard_data")
+            response = requests.get(f"{BASE_URL}/api/get_dashboard_data")
             if response.status_code != 200:
                 QMessageBox.warning(self, "Server Error", "Server returned an error.")
                 return
@@ -392,7 +393,7 @@ class DashboardPage(QWidget):
     
     def fetch_current_week(self):
         try:
-            response = requests.get("https://aware-api.onrender.com/api/week", timeout=3)
+            response = requests.get(f"{BASE_URL}/api/week", timeout=3)
             if response.status_code == 200:
                 data = response.json()
                 if data["status"] in ["Not Started", "Sembreak"]:

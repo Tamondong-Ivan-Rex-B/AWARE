@@ -1,15 +1,18 @@
+import sys
 import requests
 from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, 
-    QPushButton, QTableWidget, QTableWidgetItem, QHeaderView, QMessageBox, QTabWidget,
-    QFormLayout, QComboBox, QDialog, QDialogButtonBox
+    QWidget, QVBoxLayout, QTabWidget, QTableWidget, 
+    QTableWidgetItem, QLabel, QPushButton, QHBoxLayout,
+    QDialog, QFormLayout, QLineEdit, QDialogButtonBox, QMessageBox, QComboBox,
+    QHeaderView
 )
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
-from PyQt6.QtGui import QCursor
+from PyQt6.QtCore import QThread, pyqtSignal
 from config import BASE_URL
 
+# ==========================================
+# 1. API WORKER THREAD
+# ==========================================
 class FetchDataWorker(QThread):
-    # Signals return a tuple: (tab_index, data_list) so we know where to put the data!
     finished_success = pyqtSignal(int, list) 
     finished_error = pyqtSignal(int, str)    
 
@@ -20,1049 +23,558 @@ class FetchDataWorker(QThread):
 
     def run(self):
         try:
-            url = f"{BASE_URL}{self.endpoint}"
-            response = requests.get(url)
+            response = requests.get(f"{BASE_URL}{self.endpoint}")
             response.raise_for_status()
-            
-            # Extract the "data" list from your Flask JSON response
-            data = response.json().get("data", [])
-            self.finished_success.emit(self.tab_index, data)
-            
+            self.finished_success.emit(self.tab_index, response.json().get("data", []))
         except Exception as e:
             self.finished_error.emit(self.tab_index, str(e))
 
+# ==========================================
+# 2. POPUP DIALOGS
+# ==========================================
+class ProfessorDialog(QDialog):
+    def __init__(self, parent=None, data=None):
+        super().__init__(parent)
+        self.setWindowTitle("Edit Professor" if data else "Add Professor")
+        self.resize(300, 200)
+        layout = QFormLayout(self)
+        
+        self.first_name = QLineEdit(data.get("First_Name", "") if data else "")
+        self.last_name = QLineEdit(data.get("Last_Name", "") if data else "")
+        self.username = QLineEdit(data.get("Username", "") if data else "")
+        self.department = QLineEdit(data.get("Department", "") if data else "")
+        self.password = QLineEdit()
+        self.password.setEchoMode(QLineEdit.EchoMode.Password)
+        self.password.setPlaceholderText("Leave blank to keep current" if data else "Required")
+
+        layout.addRow("First Name:", self.first_name)
+        layout.addRow("Last Name:", self.last_name)
+        layout.addRow("Username:", self.username)
+        layout.addRow("Password:", self.password)
+        layout.addRow("Department:", self.department)
+
+        self.btns = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
+        self.btns.accepted.connect(self.accept)
+        self.btns.rejected.connect(self.reject)
+        layout.addWidget(self.btns)
+
+    def get_data(self):
+        payload = {
+            "First_Name": self.first_name.text().strip(),
+            "Last_Name": self.last_name.text().strip(),
+            "Username": self.username.text().strip(),
+            "Department": self.department.text().strip()
+        }
+        if self.password.text().strip():
+            payload["Password"] = self.password.text().strip()
+        return payload
+
+class GuardianDialog(QDialog):
+    def __init__(self, parent=None, data=None):
+        super().__init__(parent)
+        self.setWindowTitle("Edit Guardian" if data else "Add Guardian")
+        layout = QFormLayout(self)
+        
+        self.first_name = QLineEdit(data.get("First_Name", "") if data else "")
+        self.last_name = QLineEdit(data.get("Last_Name", "") if data else "")
+        self.email = QLineEdit(data.get("Email", "") if data else "")
+        self.phone = QLineEdit(data.get("Phone", "") if data else "")
+
+        layout.addRow("First Name:", self.first_name)
+        layout.addRow("Last Name:", self.last_name)
+        layout.addRow("Email:", self.email)
+        layout.addRow("Phone:", self.phone)
+
+        self.btns = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
+        self.btns.accepted.connect(self.accept)
+        self.btns.rejected.connect(self.reject)
+        layout.addWidget(self.btns)
+
+    def get_data(self):
+        return {
+            "First_Name": self.first_name.text().strip(),
+            "Last_Name": self.last_name.text().strip(),
+            "Email": self.email.text().strip(),
+            "Phone": self.phone.text().strip()
+        }
+
+class StudentDialog(QDialog):
+    def __init__(self, parent=None, data=None):
+        super().__init__(parent)
+        self.setWindowTitle("Edit Student" if data else "Add Student")
+        layout = QFormLayout(self)
+        
+        self.first_name = QLineEdit(data.get("First_Name", "") if data else "")
+        self.last_name = QLineEdit(data.get("Last_Name", "") if data else "")
+        self.username = QLineEdit(data.get("Username", "") if data else "")
+        self.password = QLineEdit()
+        self.password.setEchoMode(QLineEdit.EchoMode.Password)
+        self.password.setPlaceholderText("Leave blank to keep current" if data else "Required")
+
+        self.guardian_combo = QComboBox()
+        self.guardian_combo.addItem("None", None)
+        try:
+            resp = requests.get(f"{BASE_URL}/api/admin/guardians").json().get("data", [])
+            for g in resp:
+                self.guardian_combo.addItem(f"{g['First_Name']} {g['Last_Name']}", g['Guardian_ID'])
+        except: pass
+
+        if data and data.get("Guardian_ID") != "None":
+            idx = self.guardian_combo.findData(int(data.get("Guardian_ID")))
+            if idx >= 0: self.guardian_combo.setCurrentIndex(idx)
+
+        layout.addRow("First Name:", self.first_name)
+        layout.addRow("Last Name:", self.last_name)
+        layout.addRow("Username:", self.username)
+        layout.addRow("Password:", self.password)
+        layout.addRow("Guardian:", self.guardian_combo)
+
+        self.btns = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
+        self.btns.accepted.connect(self.accept)
+        self.btns.rejected.connect(self.reject)
+        layout.addWidget(self.btns)
+
+    def get_data(self):
+        payload = {
+            "First_Name": self.first_name.text().strip(),
+            "Last_Name": self.last_name.text().strip(),
+            "Username": self.username.text().strip(),
+            "Guardian_ID": self.guardian_combo.currentData()
+        }
+        if self.password.text().strip(): payload["Password"] = self.password.text().strip()
+        return payload
+
+class CourseDialog(QDialog):
+    def __init__(self, parent=None, data=None):
+        super().__init__(parent)
+        self.setWindowTitle("Edit Course" if data else "Add Course")
+        layout = QFormLayout(self)
+        
+        self.course_code = QLineEdit(data.get("Course_Code", "") if data else "")
+        self.course_title = QLineEdit(data.get("Course_Title", "") if data else "")
+
+        if data: self.course_code.setReadOnly(True)
+
+        layout.addRow("Course Code:", self.course_code)
+        layout.addRow("Course Title:", self.course_title)
+
+        self.btns = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
+        self.btns.accepted.connect(self.accept)
+        self.btns.rejected.connect(self.reject)
+        layout.addWidget(self.btns)
+
+    def get_data(self):
+        return {
+            "Course_Code": self.course_code.text().strip().upper(),
+            "Course_Title": self.course_title.text().strip()
+        }
+
+class ScheduleDialog(QDialog):
+    def __init__(self, parent=None, data=None):
+        super().__init__(parent)
+        self.setWindowTitle("Edit Schedule" if data else "Add Schedule")
+        layout = QFormLayout(self)
+        
+        self.course_combo = QComboBox()
+        self.prof_combo = QComboBox()
+        self.day_combo = QComboBox()
+        self.day_combo.addItems(["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"])
+        
+        self.start_time = QLineEdit(data.get("Start_Time", "09:00:00") if data else "09:00:00")
+        self.end_time = QLineEdit(data.get("End_Time", "10:30:00") if data else "10:30:00")
+
+        try:
+            courses = requests.get(f"{BASE_URL}/api/admin/courses").json().get("data", [])
+            for c in courses: self.course_combo.addItem(c["Course_Code"], c["Course_Code"])
+            
+            profs = requests.get(f"{BASE_URL}/api/admin/professors").json().get("data", [])
+            for p in profs: self.prof_combo.addItem(f"{p['First_Name']} {p['Last_Name']}", p["Professor_ID"])
+        except: pass
+
+        if data:
+            c_idx = self.course_combo.findData(data.get("Course_Code"))
+            if c_idx >= 0: self.course_combo.setCurrentIndex(c_idx)
+            
+            for i in range(self.prof_combo.count()):
+                if str(self.prof_combo.itemData(i)) == str(data.get("Prof_ID")):
+                    self.prof_combo.setCurrentIndex(i)
+                    break
+            
+            self.day_combo.setCurrentText(data.get("Day"))
+
+        layout.addRow("Course:", self.course_combo)
+        layout.addRow("Professor:", self.prof_combo)
+        layout.addRow("Day:", self.day_combo)
+        layout.addRow("Start Time:", self.start_time)
+        layout.addRow("End Time:", self.end_time)
+
+        self.btns = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
+        self.btns.accepted.connect(self.accept)
+        self.btns.rejected.connect(self.reject)
+        layout.addWidget(self.btns)
+
+    def get_data(self):
+        return {
+            "Course_Code": self.course_combo.currentData(),
+            "Professor_ID": self.prof_combo.currentData(),
+            "Day_of_Week": self.day_combo.currentText(),
+            "Start_Time": self.start_time.text().strip(),
+            "End_Time": self.end_time.text().strip()
+        }
+
+class EnrollmentDialog(QDialog):
+    def __init__(self, parent=None, data=None):
+        super().__init__(parent)
+        self.setWindowTitle("Edit Enrollment" if data else "Add Enrollment")
+        layout = QFormLayout(self)
+        
+        self.student_combo = QComboBox()
+        self.course_combo = QComboBox()
+        
+        self.acad_year = QLineEdit(data.get("Academic_Year", "2025-2026") if data else "2025-2026")
+        self.semester = QComboBox()
+        self.semester.addItems(["1st", "2nd", "Summer"])
+        if data and data.get("Semester"): self.semester.setCurrentText(data.get("Semester"))
+        self.grade = QLineEdit(data.get("Current_Grade", "1.00") if data else "")
+
+        try:
+            students = requests.get(f"{BASE_URL}/api/admin/students").json().get("data", [])
+            for s in students: self.student_combo.addItem(f"{s['First_Name']} {s['Last_Name']}", s["Student_ID"])
+            
+            courses = requests.get(f"{BASE_URL}/api/admin/courses").json().get("data", [])
+            for c in courses: self.course_combo.addItem(c["Course_Code"], c["Course_Code"])
+        except: pass
+
+        if data:
+            for i in range(self.student_combo.count()):
+                if str(self.student_combo.itemData(i)) == str(data.get("Student_ID")):
+                    self.student_combo.setCurrentIndex(i)
+                    break
+            c_idx = self.course_combo.findData(data.get("Course_Code"))
+            if c_idx >= 0: self.course_combo.setCurrentIndex(c_idx)
+
+        layout.addRow("Student:", self.student_combo)
+        layout.addRow("Course:", self.course_combo)
+        layout.addRow("Academic Year:", self.acad_year)
+        layout.addRow("Semester:", self.semester)
+        layout.addRow("Current Grade:", self.grade)
+
+        self.btns = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
+        self.btns.accepted.connect(self.accept)
+        self.btns.rejected.connect(self.reject)
+        layout.addWidget(self.btns)
+
+    def get_data(self):
+        return {
+            "Student_ID": self.student_combo.currentData(),
+            "Course_Code": self.course_combo.currentData(),
+            "Academic_Year": self.acad_year.text().strip(),
+            "Semester": self.semester.currentText(),
+            "Current_Grade": self.grade.text().strip()
+        }
+
+class SessionDialog(QDialog):
+    def __init__(self, parent=None, data=None):
+        super().__init__(parent)
+        self.setWindowTitle("Edit Session" if data else "Add Session")
+        layout = QFormLayout(self)
+        
+        self.sched_combo = QComboBox()
+        self.date_input = QLineEdit(data.get("Session_Date", "2026-04-15") if data else "2026-04-15")
+        self.topic_input = QLineEdit(data.get("Topic", "") if data else "")
+
+        try:
+            scheds = requests.get(f"{BASE_URL}/api/admin/schedules").json().get("data", [])
+            for s in scheds: self.sched_combo.addItem(f"Sched #{s['Schedule_ID']} - {s['Course_Code']}", s["Schedule_ID"])
+        except: pass
+
+        if data:
+            for i in range(self.sched_combo.count()):
+                if str(self.sched_combo.itemData(i)) == str(data.get("Schedule_ID")):
+                    self.sched_combo.setCurrentIndex(i)
+                    break
+
+        layout.addRow("Schedule:", self.sched_combo)
+        layout.addRow("Date (YYYY-MM-DD):", self.date_input)
+        layout.addRow("Topic:", self.topic_input)
+
+        self.btns = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
+        self.btns.accepted.connect(self.accept)
+        self.btns.rejected.connect(self.reject)
+        layout.addWidget(self.btns)
+
+    def get_data(self):
+        return {
+            "Schedule_ID": self.sched_combo.currentData(),
+            "Session_Date": self.date_input.text().strip(),
+            "Topic": self.topic_input.text().strip()
+        }
+
+# ==========================================
+# 3. MAIN WINDOW
+# ==========================================
 class ManageDataWindow(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("⚙️ A.W.A.R.E. Data Management")
-        self.resize(950, 650)
+        self.resize(1100, 700)
         
+        # UI TWEAK: Added explicit coloring for dropdown menus (QAbstractItemView)
         self.setStyleSheet("""
-        /* --- Popup Dialogue Boxes --- */
-        QMessageBox { 
-            background-color: white; 
-        }
-        QMessageBox QLabel { 
-            color: #5071c1; /* Changes the popup text to custom blue */
-            font-size: 14px; 
-            font-weight: bold; 
-        }
-        QMessageBox QPushButton { 
-            background-color: white; 
-            color: #5071c1; 
-            border: 1px solid #cbd5e1; 
-            border-radius: 5px; 
-            padding: 6px 15px; 
-            font-weight: bold; 
-            min-width: 60px;
-        }
-        QMessageBox QPushButton:hover { 
-            background-color: #f8fafc; 
-            border: 1px solid #5071c1; 
-        }
+        QPushButton { background-color: white; color: #5071c1; border: 1px solid #cbd5e1; border-radius: 5px; padding: 6px 15px; font-weight: bold; min-width: 60px; }
+        QPushButton:hover { background-color: #f8fafc; border: 1px solid #5071c1; }
+        QMessageBox { background-color: white; }
+        QMessageBox QLabel { color: #5071c1; font-size: 14px; font-weight: bold; }
         QWidget { background-color: white; }
         QLabel { color: #0f172a; font-size: 13px; }
-        QLineEdit, QComboBox { padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; background: #f8fafc; color: #0f172a; }
-        QComboBox { color: #5071c1; font-weight: bold; }
+        QLineEdit, QComboBox { padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; background: #f8fafc; color: #5071c1; }
+        QComboBox { font-weight: bold; }
+        QComboBox QAbstractItemView { color: #5071c1; background-color: white; selection-background-color: #f1f5f9; outline: none; }
         QLineEdit:focus, QComboBox:focus { border: 1px solid #6D28D9; background: white; }
-        QComboBox QAbstractItemView { background-color: white; color: #0f172a; selection-background-color: #f1f5f9; selection-color: #6D28D9; border: 1px solid #cbd5e1; outline: none; }
         QTableWidget { border: 1px solid #e2e8f0; border-radius: 6px; gridline-color: #e2e8f0; color: #5071c1; background-color: white; }
         QTableWidget::item { padding: 5px; }
         QTableWidget::item:selected { background-color: #f8fafc; color: #6D28D9; font-weight: bold; }
         QHeaderView::section { background-color: #f8fafc; padding: 10px; border: none; border-bottom: 2px solid #e2e8f0; font-weight: bold; color: #5071c1; }
         QTabWidget::pane { border: 1px solid #e2e8f0; background: white; border-radius: 8px; }
-        QTabBar::tab { background: #f1f5f9; color: #64748b; padding: 10px 20px; border: 1px solid #e2e8f0; border-bottom-color: #e2e8f0; border-top-left-radius: 8px; border-top-right-radius: 8px; font-weight: bold; margin-right: 2px; }
+        QTabBar::tab { background: #f1f5f9; color: #64748b; padding: 10px 20px; border: 1px solid #e2e8f0; border-top-left-radius: 8px; border-top-right-radius: 8px; font-weight: bold; margin-right: 2px; }
         QTabBar::tab:selected { background: #6D28D9; color: white; border-color: #6D28D9; }
         """)
 
         main_layout = QVBoxLayout()
-        
         self.tabs = QTabWidget()
-        self.tabs.addTab(self.create_professors_tab(), "Professors")
-        self.tabs.addTab(self.create_students_tab(), "Students")
-        self.tabs.addTab(self.create_courses_tab(), "Courses")
         
-        # Connect the click event
-        self.tabs.currentChanged.connect(self.on_tab_changed)
+        self.tabs.addTab(self.create_ui_tab("Professors", ["ID", "First Name", "Last Name", "Department"], self.handle_prof_crud), "Professors")
+        self.tabs.addTab(self.create_ui_tab("Guardians", ["ID", "First Name", "Last Name", "Email", "Phone"], self.handle_guardian_crud), "Guardians")
+        self.tabs.addTab(self.create_ui_tab("Students", ["ID", "First Name", "Last Name", "Guardian ID"], self.handle_student_crud), "Students")
+        self.tabs.addTab(self.create_ui_tab("Courses", ["Code", "Title"], self.handle_course_crud), "Courses")
+        self.tabs.addTab(self.create_ui_tab("Schedules", ["ID", "Course", "Prof ID", "Day", "Start", "End"], self.handle_schedule_crud), "Schedules")
+        self.tabs.addTab(self.create_ui_tab("Enrollments", ["ID", "Student ID", "Course", "Acad. Year", "Semester", "Grade"], self.handle_enrollment_crud), "Enrollments")
+        self.tabs.addTab(self.create_ui_tab("Class Sessions", ["ID", "Schedule ID", "Date", "Topic", "Attendance"], self.handle_session_crud), "Sessions")
+        self.tabs.addTab(self.create_ui_tab("Evaluations", ["ID", "Course", "Clarity", "Pacing", "Comp.", "Engage.", "Date", "Study Hrs", "Comments"], self.handle_eval_crud, hide_add_edit=True), "Evaluations")
         
-        # Track loaded tabs to prevent re-fetching
-        self.loaded_tabs = {0: False, 1: False, 2: False}
-        
-        # Keep a reference to prevent garbage collection
-        self.worker = None 
-        
-        # Manually trigger the first tab load
-        self.on_tab_changed(0)
         main_layout.addWidget(self.tabs)
         self.setLayout(main_layout)
-    
-# ==========================================
-# POPUP DIALOG FOR ADDING PROFESSORS
-# ==========================================
-class AddProfessorDialog(QDialog):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("Add New Professor")
-        self.resize(300, 200)
 
-        # QFormLayout makes perfect forms automatically!
-        layout = QFormLayout(self)
-        
-        # Create the text boxes
-        self.first_name_input = QLineEdit()
-        self.last_name_input = QLineEdit()
-        self.username_input = QLineEdit()
-        self.department_input = QLineEdit()
-        
-        self.password_input = QLineEdit()
-        self.password_input.setEchoMode(QLineEdit.EchoMode.Password) # Hides the password dots
-
-        # Add them to the form layout
-        layout.addRow("First Name:", self.first_name_input)
-        layout.addRow("Last Name:", self.last_name_input)
-        layout.addRow("Username:", self.username_input)
-        layout.addRow("Password:", self.password_input)
-        layout.addRow("Department:", self.department_input)
-
-        # Add Save and Cancel buttons
-        self.buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
-        self.buttons.accepted.connect(self.accept) # Triggers when they click Save
-        self.buttons.rejected.connect(self.reject) # Triggers when they click Cancel
-        layout.addWidget(self.buttons)
-
-    def get_data(self):
-        # This packages the typed text into a dictionary ready for the API
-        return {
-            "First_Name": self.first_name_input.text().strip(),
-            "Last_Name": self.last_name_input.text().strip(),
-            "Username": self.username_input.text().strip(),
-            "Password": self.password_input.text().strip(),
-            "Department": self.department_input.text().strip()
-        }
-
-# ==========================================
-# POPUP DIALOG FOR ADDING STUDENTS
-# ==========================================
-class AddStudentDialog(QDialog):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("Add New Student")
-        self.resize(300, 200)
-
-        layout = QFormLayout(self)
-        
-        self.first_name_input = QLineEdit()
-        self.last_name_input = QLineEdit()
-        self.username_input = QLineEdit()
-        
-        self.password_input = QLineEdit()
-        self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
-        
-        self.guardian_id_input = QLineEdit()
-        self.guardian_id_input.setPlaceholderText("(Optional)")
-
-        layout.addRow("First Name:", self.first_name_input)
-        layout.addRow("Last Name:", self.last_name_input)
-        layout.addRow("Username:", self.username_input)
-        layout.addRow("Password:", self.password_input)
-        layout.addRow("Guardian ID:", self.guardian_id_input)
-
-        self.buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
-        self.buttons.accepted.connect(self.accept)
-        self.buttons.rejected.connect(self.reject)
-        layout.addWidget(self.buttons)
-
-    def get_data(self):
-        # We handle the optional Guardian ID carefully here
-        guardian_id = self.guardian_id_input.text().strip()
-        if not guardian_id:
-            guardian_id = None
-            
-        return {
-            "First_Name": self.first_name_input.text().strip(),
-            "Last_Name": self.last_name_input.text().strip(),
-            "Username": self.username_input.text().strip(),
-            "Password": self.password_input.text().strip(),
-            "Guardian_ID": guardian_id
-        }
-
-    def on_tab_changed(self, index):
-        if self.loaded_tabs[index]:
-            return # Already loaded, do nothing!
-
-        # Determine which Render endpoint to hit based on the tab
-        endpoints = {
-            0: "/api/admin/professors",
-            1: "/api/admin/students",
-            2: "/api/admin/courses"
-        }
-        
-        endpoint = endpoints.get(index)
-        if not endpoint:
-            return
-
-        # Show loading message
-        if index == 0:
-            self.prof_table.setRowCount(0) # Clear existing
-            self.prof_table.setRowCount(1)
-            self.prof_table.setItem(0, 0, QTableWidgetItem("Loading..."))
-        # Add similar loading logic for students and courses if you want
-
-        self.worker = FetchDataWorker(index, endpoint)
-        self.worker.finished_success.connect(self.handle_data_loaded)
-        self.worker.finished_error.connect(self.handle_data_error)
-        self.worker.start()
-
-    def handle_data_loaded(self, tab_index, data):
-        self.loaded_tabs[tab_index] = True
-        
-        if tab_index == 0:
-            self.populate_professors_table(data)
-        elif tab_index == 1:
-            self.populate_students_table(data)
-        elif tab_index == 2:
-            self.populate_courses_table(data)
-
-    def handle_data_error(self, tab_index, error_msg):
-        print(f"Error: {error_msg}")
-    
-        main_layout = QVBoxLayout(self)
-        
-        top_layout = QHBoxLayout()
-        title = QLabel("<b>⚙️ Manage System Data</b>")
-        title.setStyleSheet("font-size: 18px;")
-        back_btn = QPushButton("Close")
-        back_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        back_btn.setStyleSheet("padding: 5px 15px; border: 1px solid #cbd5e1; border-radius: 5px; font-weight:bold; color: #0f172a;")
-        back_btn.clicked.connect(self.close)
-        top_layout.addWidget(title)
-        top_layout.addStretch()
-        top_layout.addWidget(back_btn)
-        
-        self.tabs = QTabWidget()
-        
-        self.setup_professors_tab()
-        self.setup_guardians_tab()
-        self.setup_students_tab()
-        self.setup_courses_tab()
-        self.setup_enrollments_tab()
-        self.setup_schedules_tab()
-        self.setup_evaluations_tab()
-        
-        main_layout.addLayout(top_layout)
-        main_layout.addWidget(self.tabs)
-        
-        self.tabs.currentChanged.connect(self.load_all_data)
-        self.load_all_data()
-
-    # --- UI HELPER FOR 3-BUTTON LAYOUT ---
-    def create_action_buttons(self, add_func, update_func, delete_func, clear_func):
-        layout = QVBoxLayout()
-        row1 = QHBoxLayout()
-        btn_add = QPushButton("Add New")
-        btn_add.setStyleSheet("background: #10B981; color: white; padding: 7px; border-radius: 5px; font-weight: bold;")
-        btn_add.clicked.connect(add_func)
-        
-        btn_upd = QPushButton("Update Selected")
-        btn_upd.setStyleSheet("background: #3B82F6; color: white; padding: 7px; border-radius: 5px; font-weight: bold;")
-        btn_upd.clicked.connect(update_func)
-        
-        row1.addWidget(btn_add)
-        row1.addWidget(btn_upd)
-        
-        row2 = QHBoxLayout()
-        btn_del = QPushButton("Delete")
-        btn_del.setStyleSheet("background: #EF4444; color: white; padding: 7px; border-radius: 5px; font-weight: bold;")
-        btn_del.clicked.connect(delete_func)
-        
-        btn_clr = QPushButton("Clear Form")
-        btn_clr.setStyleSheet("background: #E2E8F0; color: #0F172A; padding: 7px; border-radius: 5px; font-weight: bold;")
-        btn_clr.clicked.connect(clear_func)
-        
-        row2.addWidget(btn_del)
-        row2.addWidget(btn_clr)
-        
-        layout.addLayout(row1)
-        layout.addLayout(row2)
-        return layout
-
-    # ==========================================================
-    # TAB 1: PROFESSORS
-    # ==========================================================
-    def setup_professors_tab(self):
-        tab = QWidget()
-        layout = QHBoxLayout(tab)
-        left_panel = QVBoxLayout()
-        self.prof_id_hidden = None
-        form_layout = QFormLayout()
-        
-        self.in_prof_first = QLineEdit()
-        self.in_prof_last = QLineEdit()
-        self.in_prof_user = QLineEdit()
-        self.in_prof_dept = QLineEdit()
-        self.in_prof_pass = QLineEdit()
-        self.in_prof_pass.setEchoMode(QLineEdit.EchoMode.Password)
-        
-        form_layout.addRow("<b>First Name:</b>", self.in_prof_first)
-        form_layout.addRow("<b>Last Name:</b>", self.in_prof_last)
-        form_layout.addRow("<b>Username:</b>", self.in_prof_user)
-        form_layout.addRow("<b>Department:</b>", self.in_prof_dept)
-        form_layout.addRow("<b>Password:</b>", self.in_prof_pass)
-        left_panel.addLayout(form_layout)
-        
-        left_panel.addLayout(self.create_action_buttons(self.add_prof, self.update_prof, self.delete_prof, self.clear_prof))
-        left_panel.addStretch()
-        
-        self.prof_table = QTableWidget(0, 5)
-        self.prof_table.setHorizontalHeaderLabels(["ID", "First", "Last", "User", "Dept"])
-        self.prof_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        self.prof_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
-        self.prof_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        self.prof_table.itemSelectionChanged.connect(self.pop_prof)
-        
-        layout.addLayout(left_panel, 1)
-        layout.addWidget(self.prof_table, 2)
-        self.tabs.addTab(tab, "Professors")
-
-    def clear_prof(self):
-        self.prof_id_hidden = None
-        for i in [self.in_prof_first, self.in_prof_last, self.in_prof_user, self.in_prof_dept, self.in_prof_pass]: i.clear()
-        self.prof_table.clearSelection()
-
-    def pop_prof(self):
-        sel = self.prof_table.selectedItems()
-        if sel:
-            self.prof_id_hidden = int(sel[0].text())
-            self.in_prof_first.setText(sel[1].text())
-            self.in_prof_last.setText(sel[2].text())
-            self.in_prof_user.setText(sel[3].text())
-            self.in_prof_dept.setText(sel[4].text())
-
-    def get_prof_payload(self):
-        return {
-            "First_Name": self.in_prof_first.text(), "Last_Name": self.in_prof_last.text(),
-            "Username": self.in_prof_user.text(), "Department": self.in_prof_dept.text(), "Password": self.in_prof_pass.text()
-        }
-
-    def add_prof(self):
-        p = self.get_prof_payload()
-        if not p['Password']: return QMessageBox.warning(self, "Error", "Password required!")
-        if requests.post("https://aware-api.onrender.com/api/admin/professors", json=p).status_code == 201: self.load_all_data()
-
-    def update_prof(self):
-        if not self.prof_id_hidden: return QMessageBox.warning(self, "Error", "Select a Professor first!")
-        if requests.put(f"https://aware-api.onrender.com/api/admin/professors/{self.prof_id_hidden}", json=self.get_prof_payload()).status_code == 200: self.load_all_data()
-
-    def delete_prof(self):
-        if self.prof_id_hidden and QMessageBox.question(self, "Confirm", "Delete?") == QMessageBox.StandardButton.Yes:
-            if requests.delete(f"https://aware-api.onrender.com/api/admin/professors/{self.prof_id_hidden}").status_code == 200: self.load_all_data()
-
-
-    # ==========================================================
-    # TAB 2: GUARDIANS
-    # ==========================================================
-    def setup_guardians_tab(self):
-        tab = QWidget()
-        layout = QHBoxLayout(tab)
-        left_panel = QVBoxLayout()
-        self.guard_id_hidden = None
-        form_layout = QFormLayout()
-        
-        self.in_guard_first = QLineEdit()
-        self.in_guard_last = QLineEdit()
-        self.in_guard_phone = QLineEdit()
-        self.in_guard_email = QLineEdit()
-        
-        form_layout.addRow("<b>First Name:</b>", self.in_guard_first)
-        form_layout.addRow("<b>Last Name:</b>", self.in_guard_last)
-        form_layout.addRow("<b>Phone Number:</b>", self.in_guard_phone)
-        form_layout.addRow("<b>Email Address:</b>", self.in_guard_email)
-        left_panel.addLayout(form_layout)
-        
-        left_panel.addLayout(self.create_action_buttons(self.add_guard, self.update_guard, self.delete_guard, self.clear_guard))
-        left_panel.addStretch()
-        
-        self.guard_table = QTableWidget(0, 5)
-        self.guard_table.setHorizontalHeaderLabels(["ID", "First", "Last", "Phone", "Email"])
-        self.guard_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        self.guard_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
-        self.guard_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        self.guard_table.itemSelectionChanged.connect(self.pop_guard)
-        
-        layout.addLayout(left_panel, 1)
-        layout.addWidget(self.guard_table, 2)
-        self.tabs.addTab(tab, "Guardians")
-
-    def clear_guard(self):
-        self.guard_id_hidden = None
-        for i in [self.in_guard_first, self.in_guard_last, self.in_guard_phone, self.in_guard_email]: i.clear()
-        self.guard_table.clearSelection()
-
-    def pop_guard(self):
-        sel = self.guard_table.selectedItems()
-        if sel:
-            self.guard_id_hidden = int(sel[0].text())
-            self.in_guard_first.setText(sel[1].text())
-            self.in_guard_last.setText(sel[2].text())
-            self.in_guard_phone.setText(sel[3].text())
-            self.in_guard_email.setText(sel[4].text())
-
-    def get_guard_payload(self):
-        return {"First_Name": self.in_guard_first.text(), "Last_Name": self.in_guard_last.text(), "Contact_Number": self.in_guard_phone.text(), "Email": self.in_guard_email.text()}
-
-    def add_guard(self):
-        if requests.post("https://aware-api.onrender.com/api/admin/guardians", json=self.get_guard_payload()).status_code == 201: self.load_all_data()
-
-    def update_guard(self):
-        if not self.guard_id_hidden: return QMessageBox.warning(self, "Error", "Select a Guardian first!")
-        if requests.put(f"https://aware-api.onrender.com/api/admin/guardians/{self.guard_id_hidden}", json=self.get_guard_payload()).status_code == 200: self.load_all_data()
-
-    def delete_guard(self):
-        if self.guard_id_hidden and QMessageBox.question(self, "Confirm", "Delete?") == QMessageBox.StandardButton.Yes:
-            if requests.delete(f"https://aware-api.onrender.com/api/admin/guardians/{self.guard_id_hidden}").status_code == 200: self.load_all_data()
-
-
-    # ==========================================================
-    # TAB 3: STUDENTS
-    # ==========================================================
-    def setup_students_tab(self):
-        tab = QWidget()
-        layout = QHBoxLayout(tab)
-        left_panel = QVBoxLayout()
-        self.stud_id_hidden = None
-        form_layout = QFormLayout()
-        
-        self.in_stud_first = QLineEdit()
-        self.in_stud_last = QLineEdit()
-        self.in_stud_user = QLineEdit()
-        self.in_stud_guard = QComboBox()
-        self.in_stud_pass = QLineEdit()
-        self.in_stud_pass.setEchoMode(QLineEdit.EchoMode.Password)
-        
-        form_layout.addRow("<b>First Name:</b>", self.in_stud_first)
-        form_layout.addRow("<b>Last Name:</b>", self.in_stud_last)
-        form_layout.addRow("<b>Username:</b>", self.in_stud_user)
-        form_layout.addRow("<b>Guardian Name:</b>", self.in_stud_guard)
-        form_layout.addRow("<b>Password:</b>", self.in_stud_pass)
-        left_panel.addLayout(form_layout)
-        
-        left_panel.addLayout(self.create_action_buttons(self.add_stud, self.update_stud, self.delete_stud, self.clear_stud))
-        left_panel.addStretch()
-        
-        self.stud_table = QTableWidget(0, 5)
-        self.stud_table.setHorizontalHeaderLabels(["ID", "First", "Last", "User", "Guardian"])
-        self.stud_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        self.stud_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
-        self.stud_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        self.stud_table.itemSelectionChanged.connect(self.pop_stud)
-        
-        layout.addLayout(left_panel, 1)
-        layout.addWidget(self.stud_table, 2)
-        self.tabs.addTab(tab, "Students")
-
-    def clear_stud(self):
-        self.stud_id_hidden = None
-        for i in [self.in_stud_first, self.in_stud_last, self.in_stud_user, self.in_stud_pass]: i.clear()
-        self.in_stud_guard.setCurrentIndex(0)
-        self.stud_table.clearSelection()
-
-    def pop_stud(self):
-        sel = self.stud_table.selectedItems()
-        if sel:
-            self.stud_id_hidden = int(sel[0].text())
-            self.in_stud_first.setText(sel[1].text())
-            self.in_stud_last.setText(sel[2].text())
-            self.in_stud_user.setText(sel[3].text())
-            idx = self.in_stud_guard.findText(sel[4].text(), Qt.MatchFlag.MatchContains)
-            self.in_stud_guard.setCurrentIndex(idx if idx >= 0 else 0)
-
-    def get_stud_payload(self):
-        return {"First_Name": self.in_stud_first.text(), "Last_Name": self.in_stud_last.text(), "Username": self.in_stud_user.text(), "Password": self.in_stud_pass.text(), "Guardian_ID": self.in_stud_guard.currentData() or None}
-
-    def add_stud(self):
-        p = self.get_stud_payload()
-        if not p['Password']: return QMessageBox.warning(self, "Error", "Password required!")
-        if requests.post("https://aware-api.onrender.com/api/admin/students", json=p).status_code == 201: self.load_all_data()
-
-    def update_stud(self):
-        if not self.stud_id_hidden: return QMessageBox.warning(self, "Error", "Select a Student first!")
-        if requests.put(f"https://aware-api.onrender.com/api/admin/students/{self.stud_id_hidden}", json=self.get_stud_payload()).status_code == 200: self.load_all_data()
-
-    def delete_stud(self):
-        if self.stud_id_hidden and QMessageBox.question(self, "Confirm", "Delete?") == QMessageBox.StandardButton.Yes:
-            if requests.delete(f"https://aware-api.onrender.com/api/admin/students/{self.stud_id_hidden}").status_code == 200: self.load_all_data()
-
-
-    # ==========================================================
-    # TAB 4: COURSES
-    # ==========================================================
-    def setup_courses_tab(self):
-        tab = QWidget()
-        layout = QHBoxLayout(tab)
-        left_panel = QVBoxLayout()
-        self.course_id_hidden = None
-        form_layout = QFormLayout()
-        
-        self.in_course_code = QLineEdit()
-        self.in_course_title = QLineEdit()
-        
-        form_layout.addRow("<b>Course Code:</b>", self.in_course_code)
-        form_layout.addRow("<b>Course Title:</b>", self.in_course_title)
-        left_panel.addLayout(form_layout)
-        
-        left_panel.addLayout(self.create_action_buttons(self.add_course, self.update_course, self.delete_course, self.clear_course))
-        left_panel.addStretch()
-        
-        self.course_table = QTableWidget(0, 2)
-        self.course_table.setHorizontalHeaderLabels(["Code", "Title"])
-        self.course_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        self.course_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
-        self.course_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        self.course_table.itemSelectionChanged.connect(self.pop_course)
-        
-        layout.addLayout(left_panel, 1)
-        layout.addWidget(self.course_table, 2)
-        self.tabs.addTab(tab, "Courses")
-
-    def clear_course(self):
-        self.course_id_hidden = None
-        self.in_course_code.clear()
-        self.in_course_title.clear()
-        self.in_course_code.setReadOnly(False) # Re-enable typing Code
-        self.course_table.clearSelection()
-
-    def pop_course(self):
-        sel = self.course_table.selectedItems()
-        if sel:
-            self.course_id_hidden = sel[0].text()
-            self.in_course_code.setText(sel[0].text())
-            self.in_course_code.setReadOnly(True) # Prevent changing Primary Key during Update!
-            self.in_course_title.setText(sel[1].text())
-
-    def add_course(self):
-        c = self.in_course_code.text().strip()
-        t = self.in_course_title.text().strip()
-        if not c: return QMessageBox.warning(self, "Error", "Code Required!")
-        if requests.post("https://aware-api.onrender.com/api/admin/courses", json={"Course_Code": c, "Course_Title": t}).status_code == 201: self.load_all_data()
-
-    def update_course(self):
-        if not self.course_id_hidden: return QMessageBox.warning(self, "Error", "Select Course first!")
-        if requests.put(f"https://aware-api.onrender.com/api/admin/courses/{self.course_id_hidden}", json={"Course_Title": self.in_course_title.text()}).status_code == 200: self.load_all_data()
-
-    def delete_course(self):
-        if self.course_id_hidden and QMessageBox.question(self, "Confirm", "Delete?") == QMessageBox.StandardButton.Yes:
-            if requests.delete(f"https://aware-api.onrender.com/api/admin/courses/{self.course_id_hidden}").status_code == 200: self.load_all_data()
-
-
-    # ==========================================================
-    # TAB 5: ENROLLMENTS (FIXED SEMESTER & SESSION CRASH)
-    # ==========================================================
-    def setup_enrollments_tab(self):
-        tab = QWidget()
-        layout = QHBoxLayout(tab)
-        left_panel = QVBoxLayout()
-        self.enroll_id_hidden = None
-        form_layout = QFormLayout()
-        
-        self.in_enr_student = QComboBox()
-        self.in_enr_course = QComboBox()
-        self.in_enr_year = QLineEdit()
-        self.in_enr_sem = QComboBox()
-        self.in_enr_sem.addItems(["1st Semester", "2nd Semester", "Summer"])
-        self.in_enr_grade = QLineEdit()
-        
-        form_layout.addRow("<b>Student Name:</b>", self.in_enr_student)
-        form_layout.addRow("<b>Course Code:</b>", self.in_enr_course)
-        form_layout.addRow("<b>School Year:</b>", self.in_enr_year)
-        form_layout.addRow("<b>Semester:</b>", self.in_enr_sem)
-        form_layout.addRow("<b>Grade:</b>", self.in_enr_grade)
-        left_panel.addLayout(form_layout)
-        
-        left_panel.addLayout(self.create_action_buttons(self.add_enr, self.update_enr, self.delete_enr, self.clear_enr))
-        left_panel.addStretch()
-        
-        self.enroll_table = QTableWidget(0, 6)
-        self.enroll_table.setHorizontalHeaderLabels(["ID", "Student", "Course", "Year", "Sem", "Grade"])
-        self.enroll_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        self.enroll_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
-        self.enroll_table.horizontalHeader().setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents)
-        self.enroll_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        self.enroll_table.itemSelectionChanged.connect(self.pop_enr)
-        
-        layout.addLayout(left_panel, 1)
-        layout.addWidget(self.enroll_table, 2)
-        self.tabs.addTab(tab, "Enrollments")
-
-    def clear_enr(self):
-        self.enroll_id_hidden = None
-        self.in_enr_year.clear()
-        self.in_enr_grade.clear()
-        self.enroll_table.clearSelection()
-
-    def pop_enr(self):
-        sel = self.enroll_table.selectedItems()
-        if sel:
-            self.enroll_id_hidden = int(sel[0].text())
-            idx = self.in_enr_course.findText(sel[2].text(), Qt.MatchFlag.MatchContains)
-            self.in_enr_course.setCurrentIndex(idx if idx >= 0 else 0)
-            self.in_enr_year.setText(sel[3].text())
-            
-            idx_sem = self.in_enr_sem.findText(sel[4].text(), Qt.MatchFlag.MatchContains)
-            self.in_enr_sem.setCurrentIndex(idx_sem if idx_sem >= 0 else 0)
-            
-            self.in_enr_grade.setText(sel[5].text())
-
-    def get_enr_payload(self):
-        return {
-            "Student_ID": self.in_enr_student.currentData(), "Course_Code": self.in_enr_course.currentData(),
-            "Academic_Year": self.in_enr_year.text().strip(), "Semester": self.in_enr_sem.currentText(), "Current_Grade": self.in_enr_grade.text().strip()
-        }
-
-    def add_enr(self):
-        p = self.get_enr_payload()
-        if not p['Student_ID'] or not p['Course_Code']: return QMessageBox.warning(self, "Error", "Select Student/Course")
-        if requests.post("https://aware-api.onrender.com/api/admin/enrollments", json=p).status_code == 201: self.load_all_data()
-
-    def update_enr(self):
-        if not self.enroll_id_hidden: return QMessageBox.warning(self, "Error", "Select Enrollment first!")
-        if requests.put(f"https://aware-api.onrender.com/api/admin/enrollments/{self.enroll_id_hidden}", json=self.get_enr_payload()).status_code == 200: self.load_all_data()
-
-    def delete_enr(self):
-        if self.enroll_id_hidden and QMessageBox.question(self, "Confirm", "Unenroll?") == QMessageBox.StandardButton.Yes:
-            if requests.delete(f"https://aware-api.onrender.com/api/admin/enrollments/{self.enroll_id_hidden}").status_code == 200: self.load_all_data()
-
-
-    # ==========================================================
-    # TAB 6: SCHEDULES
-    # ==========================================================
-    def setup_schedules_tab(self):
-        tab = QWidget()
-        layout = QHBoxLayout(tab)
-        left_panel = QVBoxLayout()
-        self.sched_id_hidden = None
-        form_layout = QFormLayout()
-        
-        self.in_sched_course = QComboBox()
-        self.in_sched_day = QComboBox()
-        self.in_sched_day.addItems(["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"])
-        self.in_sched_start = QLineEdit()
-        self.in_sched_end = QLineEdit()
-        self.in_sched_room = QLineEdit()
-        
-        form_layout.addRow("<b>Course Code:</b>", self.in_sched_course)
-        form_layout.addRow("<b>Room Number:</b>", self.in_sched_room)
-        form_layout.addRow("<b>Day:</b>", self.in_sched_day)
-        form_layout.addRow("<b>Start:</b>", self.in_sched_start)
-        form_layout.addRow("<b>End:</b>", self.in_sched_end)
-        left_panel.addLayout(form_layout)
-        
-        left_panel.addLayout(self.create_action_buttons(self.add_sched, self.update_sched, self.delete_sched, self.clear_sched))
-        left_panel.addStretch()
-        
-        self.sched_table = QTableWidget(0, 6)
-        self.sched_table.setHorizontalHeaderLabels(["ID", "Course", "Room", "Day", "Start", "End"])
-        
-        self.sched_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        self.sched_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents) # ID
-        self.sched_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents) # Day
-        self.sched_table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents) # Start Time
-        self.sched_table.horizontalHeader().setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents) # End Time
-        
-        self.sched_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        self.sched_table.itemSelectionChanged.connect(self.pop_sched)
-        
-        layout.addLayout(left_panel, 1)
-        layout.addWidget(self.sched_table, 2)
-        self.tabs.addTab(tab, "Schedules")
-
-    def clear_sched(self):
-        self.sched_id_hidden = None
-        for i in [self.in_sched_start, self.in_sched_end, self.in_sched_room]: i.clear()
-        self.sched_table.clearSelection()
-
-    def pop_sched(self):
-        sel = self.sched_table.selectedItems()
-        if sel:
-            self.sched_id_hidden = int(sel[0].text())
-            idx_c = self.in_sched_course.findText(sel[1].text(), Qt.MatchFlag.MatchContains)
-            self.in_sched_course.setCurrentIndex(idx_c if idx_c >= 0 else 0)
-            self.in_sched_room.setText(sel[2].text())
-            idx_d = self.in_sched_day.findText(sel[3].text(), Qt.MatchFlag.MatchContains)
-            self.in_sched_day.setCurrentIndex(idx_d if idx_d >= 0 else 0)
-            self.in_sched_start.setText(sel[4].text())
-            self.in_sched_end.setText(sel[5].text())
-
-    def get_sched_payload(self):
-        return {"Course_Code": self.in_sched_course.currentData(), "Room_Name": self.in_sched_room.text(), "Schedule_Day": self.in_sched_day.currentText(), "Start_Time": self.in_sched_start.text(), "End_Time": self.in_sched_end.text()}
-
-    def add_sched(self):
-        if requests.post("https://aware-api.onrender.com/api/admin/schedules", json=self.get_sched_payload()).status_code == 201: self.load_all_data()
-
-    def update_sched(self):
-        if not self.sched_id_hidden: return QMessageBox.warning(self, "Error", "Select Schedule first!")
-        if requests.put(f"https://aware-api.onrender.com/api/admin/schedules/{self.sched_id_hidden}", json=self.get_sched_payload()).status_code == 200: self.load_all_data()
-
-    def delete_sched(self):
-        if self.sched_id_hidden and QMessageBox.question(self, "Confirm", "Delete?") == QMessageBox.StandardButton.Yes:
-            if requests.delete(f"https://aware-api.onrender.com/api/admin/schedules/{self.sched_id_hidden}").status_code == 200: self.load_all_data()
-
-
-    # ==========================================================
-    # TAB 7: EVALUATIONS (DELETE ONLY)
-    # ==========================================================
-    def setup_evaluations_tab(self):
-        tab = QWidget()
-        layout = QVBoxLayout(tab)
-        header_layout = QHBoxLayout()
-        header_layout.addWidget(QLabel("<b>Moderate Evaluations</b>"))
-        header_layout.addStretch()
-        btn_del = QPushButton("🗑️ Delete Selected Evaluation")
-        btn_del.setStyleSheet("background: #EF4444; color: white; padding: 8px 15px; border-radius: 5px; font-weight: bold;")
-        btn_del.clicked.connect(self.del_eval)
-        header_layout.addWidget(btn_del)
-        
-        # NEW: Updated to 7 columns to show the actual scores!
-        self.eval_table = QTableWidget(0, 7)
-        self.eval_table.setHorizontalHeaderLabels(["ID", "Course", "Clarity", "Pacing", "Comp.", "Engage.", "Date"])
-        self.eval_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        self.eval_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
-        self.eval_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        
-        layout.addLayout(header_layout)
-        layout.addWidget(self.eval_table)
-        self.tabs.addTab(tab, "Evaluations")
-
-    def del_eval(self):
-        sel = self.eval_table.selectedItems()
-        if sel and QMessageBox.question(self, "Warning", "Delete?") == QMessageBox.StandardButton.Yes:
-            if requests.delete(f"https://aware-api.onrender.com/api/admin/evaluations/{sel[0].text()}").status_code == 200: self.load_all_data()
-
-    def create_professors_tab(self):
+        self.tabs.currentChanged.connect(self.on_tab_changed)
+        self.loaded_tabs = {i: False for i in range(8)}
+        self.worker = None 
+        self.on_tab_changed(0) 
+
+    # ==========================================
+    # MAGIC UI BUILDER
+    # ==========================================
+    def create_ui_tab(self, name, headers, crud_router, hide_add_edit=False):
         tab = QWidget()
         layout = QVBoxLayout(tab)
         
-        # ==========================================
-        # 1. NEW: THE CRUD BUTTONS
-        # ==========================================
-        button_layout = QHBoxLayout()
-        
-        self.btn_add_prof = QPushButton("➕ Add Professor")
-        self.btn_edit_prof = QPushButton("✏️ Edit Selected")
-        self.btn_delete_prof = QPushButton("🗑️ Delete Selected")
-        
-        # Add buttons to the row
-        button_layout.addWidget(self.btn_add_prof)
-        button_layout.addWidget(self.btn_edit_prof)
-        button_layout.addWidget(self.btn_delete_prof)
-        button_layout.addStretch() # This pushes all the buttons nicely to the left
-        
-        # Add the button row to the main tab layout
-        layout.addLayout(button_layout)
-        
-        # Connect the buttons to functions (we will make these below!)
-        self.btn_add_prof.clicked.connect(self.add_professor_clicked)
-        self.btn_delete_prof.clicked.connect(self.delete_professor_clicked)
+        btn_layout = QHBoxLayout()
+        if not hide_add_edit:
+            btn_add = QPushButton(f"➕ Add {name[:-1]}" if not name.endswith("ssions") else "➕ Add Session")
+            btn_edit = QPushButton("✏️ Edit Selected")
+            btn_add.clicked.connect(lambda: crud_router("ADD"))
+            btn_edit.clicked.connect(lambda: crud_router("EDIT"))
+            btn_layout.addWidget(btn_add)
+            btn_layout.addWidget(btn_edit)
+            
+        btn_del = QPushButton("🗑️ Delete Selected")
+        btn_del.clicked.connect(lambda: crud_router("DELETE"))
+        btn_layout.addWidget(btn_del)
+        btn_layout.addStretch()
+        layout.addLayout(btn_layout)
 
-        # ==========================================
-        # 2. EXISTING: THE TABLE
-        # ==========================================
-        self.prof_table = QTableWidget()
-        self.prof_table.setColumnCount(4)
-        self.prof_table.setHorizontalHeaderLabels(["ID", "First Name", "Last Name", "Department"])
-        self.prof_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows) # Select whole rows!
+        table = QTableWidget()
+        table.setColumnCount(len(headers))
+        table.setHorizontalHeaderLabels(headers)
+        table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        layout.addWidget(table)
         
-        layout.addWidget(self.prof_table)
-        
+        setattr(self, f"{name.lower().replace(' ', '_')}_table", table)
         return tab
 
-    def create_students_tab(self):
-        tab = QWidget()
-        layout = QVBoxLayout(tab)
-        
-        # 1. NEW: THE CRUD BUTTONS
-        button_layout = QHBoxLayout()
-        
-        self.btn_add_student = QPushButton("➕ Add Student")
-        self.btn_edit_student = QPushButton("✏️ Edit Selected")
-        self.btn_delete_student = QPushButton("🗑️ Delete Selected")
-        
-        button_layout.addWidget(self.btn_add_student)
-        button_layout.addWidget(self.btn_edit_student)
-        button_layout.addWidget(self.btn_delete_student)
-        button_layout.addStretch() 
-        
-        layout.addLayout(button_layout)
-        
-        # Connect buttons
-        self.btn_add_student.clicked.connect(self.add_student_clicked)
-        self.btn_delete_student.clicked.connect(self.delete_student_clicked)
-
-        # 2. EXISTING: THE TABLE
-        self.student_table = QTableWidget()
-        self.student_table.setColumnCount(4)
-        self.student_table.setHorizontalHeaderLabels(["ID", "First Name", "Last Name", "Guardian"])
-        self.student_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        
-        layout.addWidget(self.student_table)
-        
-        return tab
-
-    def create_courses_tab(self):
-        tab = QWidget()
-        layout = QVBoxLayout(tab)
-        
-        self.course_table = QTableWidget()
-        self.course_table.setColumnCount(2)
-        self.course_table.setHorizontalHeaderLabels(["Code", "Title"])
-        
-        layout.addWidget(self.course_table)
-        return tab
-    
     # ==========================================
-    # DATA POPULATOR FUNCTIONS
-    # ==========================================
-    def populate_professors_table(self, data):
-        self.prof_table.setRowCount(len(data))
-        for row, prof in enumerate(data):
-            self.prof_table.setItem(row, 0, QTableWidgetItem(str(prof.get("Professor_ID", ""))))
-            self.prof_table.setItem(row, 1, QTableWidgetItem(prof.get("First_Name", "")))
-            self.prof_table.setItem(row, 2, QTableWidgetItem(prof.get("Last_Name", "")))
-            self.prof_table.setItem(row, 3, QTableWidgetItem(prof.get("Department", "")))
-
-    def populate_students_table(self, data):
-        self.student_table.setRowCount(len(data))
-        for row, student in enumerate(data):
-            self.student_table.setItem(row, 0, QTableWidgetItem(str(student.get("Student_ID", ""))))
-            self.student_table.setItem(row, 1, QTableWidgetItem(student.get("First_Name", "")))
-            self.student_table.setItem(row, 2, QTableWidgetItem(student.get("Last_Name", "")))
-            self.student_table.setItem(row, 3, QTableWidgetItem(student.get("Guardian_Name", "")))
-
-    def populate_courses_table(self, data):
-        self.course_table.setRowCount(len(data))
-        for row, course in enumerate(data):
-            self.course_table.setItem(row, 0, QTableWidgetItem(str(course.get("Course_Code", ""))))
-            self.course_table.setItem(row, 1, QTableWidgetItem(course.get("Course_Title", "")))
-    
-    # ==========================================
-    # HELPER FUNCTION: REFRESH TABLE
+    # BULLETPROOF POPULATOR (100% Case Insensitive)
     # ==========================================
     def refresh_tab(self, index):
-        # We set the tracker back to False so the app knows it needs to re-fetch the data
         self.loaded_tabs[index] = False 
-        self.on_tab_changed(index) 
-        
-    def add_professor_clicked(self):
-        # 1. Open the popup dialog
-        dialog = AddProfessorDialog(self)
-        
-        # 2. Wait for them to click 'Save'
-        if dialog.exec() == QDialog.DialogCode.Accepted:
-            new_prof_data = dialog.get_data()
-            
-            # Security check: Make sure they didn't leave critical boxes empty
-            if not new_prof_data["First_Name"] or not new_prof_data["Password"]:
-                QMessageBox.warning(self, "Error", "First Name and Password are required!")
-                return
-                
-            # 3. Send the data to your Render Server
-            try:
-                url = f"{BASE_URL}/api/admin/professors"
-                response = requests.post(url, json=new_prof_data)
-                response.raise_for_status() # Check for server errors
-                
-                QMessageBox.information(self, "Success", "Professor added successfully!")
-                
-                # 4. Refresh the Professors tab (Index 0) to show the new person
-                self.refresh_tab(0) 
-                
-            except Exception as e:
-                QMessageBox.critical(self, "Server Error", f"Failed to add professor.\n{e}")
-        
-    def delete_professor_clicked(self):
-        selected_rows = self.prof_table.selectionModel().selectedRows()
-        
-        if not selected_rows:
-            QMessageBox.warning(self, "Selection Error", "Please click on a professor row to delete first!")
-            return
-            
-        row_index = selected_rows[0].row()
-        prof_id = self.prof_table.item(row_index, 0).text()
-        prof_name = self.prof_table.item(row_index, 2).text() # Gets the Last Name
-        
-        # 1. Ask for confirmation so they don't accidentally delete someone
-        confirm = QMessageBox.question(
-            self, 
-            "Confirm Delete", 
-            f"Are you absolutely sure you want to delete Professor {prof_name}?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-        )
-        
-        if confirm == QMessageBox.StandardButton.Yes:
-            # 2. Send the DELETE command to Render
-            try:
-                url = f"{BASE_URL}/api/admin/professors/{prof_id}"
-                response = requests.delete(url)
-                response.raise_for_status()
-                
-                QMessageBox.information(self, "Success", "Professor deleted!")
-                
-                # 3. Refresh the Professors tab
-                self.refresh_tab(0)
-                
-            except Exception as e:
-                QMessageBox.critical(self, "Server Error", f"Failed to delete.\n{e}")
-                
-    # ==========================================
-    # STUDENT CRUD ACTIONS
-    # ==========================================
-    def add_student_clicked(self):
-        dialog = AddStudentDialog(self)
-        
-        if dialog.exec() == QDialog.DialogCode.Accepted:
-            new_student_data = dialog.get_data()
-            
-            if not new_student_data["First_Name"] or not new_student_data["Password"]:
-                QMessageBox.warning(self, "Error", "First Name and Password are required!")
-                return
-                
-            try:
-                url = f"{BASE_URL}/api/admin/students"
-                response = requests.post(url, json=new_student_data)
-                response.raise_for_status() 
-                
-                QMessageBox.information(self, "Success", "Student added successfully!")
-                self.refresh_tab(1) # Refresh the Students tab (Index 1)
-                
-            except Exception as e:
-                QMessageBox.critical(self, "Server Error", f"Failed to add student.\n{e}")
-        
-    def delete_student_clicked(self):
-        selected_rows = self.student_table.selectionModel().selectedRows()
-        
-        if not selected_rows:
-            QMessageBox.warning(self, "Selection Error", "Please click on a student row to delete first!")
-            return
-            
-        row_index = selected_rows[0].row()
-        student_id = self.student_table.item(row_index, 0).text()
-        student_name = self.student_table.item(row_index, 2).text() # Last Name
-        
-        confirm = QMessageBox.question(
-            self, 
-            "Confirm Delete", 
-            f"Are you sure you want to delete Student {student_name}?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-        )
-        
-        if confirm == QMessageBox.StandardButton.Yes:
-            try:
-                url = f"{BASE_URL}/api/admin/students/{student_id}"
-                response = requests.delete(url)
-                response.raise_for_status()
-                
-                QMessageBox.information(self, "Success", "Student deleted!")
-                self.refresh_tab(1)
-                
-            except Exception as e:
-                QMessageBox.critical(self, "Server Error", f"Failed to delete student.\n{e}")
+        self.on_tab_changed(index)
 
-    # ==========================================================
-    # DATA LOADER (SMART SEARCH)
-    # ==========================================================
-    def load_all_data(self):
-        self.clear_prof()
-        self.clear_guard()
-        self.clear_stud()
-        self.clear_course()
-        self.clear_enr()
-        self.clear_sched()
+    def on_tab_changed(self, index):
+        if self.loaded_tabs[index]: return 
+        # FIX: Changed the endpoint to /api/admin/sessions to fix the 404 error!
+        endpoints = {
+            0: "/api/admin/professors", 1: "/api/admin/guardians", 2: "/api/admin/students",
+            3: "/api/admin/courses", 4: "/api/admin/schedules", 5: "/api/admin/enrollments",
+            6: "/api/admin/sessions",  
+            7: "/api/admin/evaluations"
+        }
+        if index in endpoints:
+            self.worker = FetchDataWorker(index, endpoints[index])
+            self.worker.finished_success.connect(self.handle_data_loaded)
+            self.worker.finished_error.connect(self.handle_data_error)
+            self.worker.start()
+
+    def handle_data_error(self, tab_index, error_msg):
+        print(f"Network Error on Tab {tab_index}: {error_msg}")
+
+    def handle_data_loaded(self, idx, data):
+        self.loaded_tabs[idx] = True
         
+        # Passing multiple possible key combinations to ensure it catches the data!
+        if idx == 0: self.populate_robust(self.professors_table, data, [["Professor_ID", "ID"], ["First_Name"], ["Last_Name"], ["Department"]])
+        elif idx == 1: self.populate_robust(self.guardians_table, data, [["Guardian_ID", "ID"], ["First_Name"], ["Last_Name"], ["Email"], ["Phone_Number", "Phone", "Contact"]])
+        elif idx == 2: self.populate_robust(self.students_table, data, [["Student_ID", "ID"], ["First_Name"], ["Last_Name"], ["Guardian_ID", "Guardian"]])
+        elif idx == 3: self.populate_robust(self.courses_table, data, [["Course_Code", "Code"], ["Course_Title", "Title"]])
+        elif idx == 4: self.populate_robust(self.schedules_table, data, [["Schedule_ID", "ID"], ["Course_Code"], ["Professor_ID", "Prof_ID"], ["Day_of_Week", "Day"], ["Start_Time"], ["End_Time"]])
+        elif idx == 5: self.populate_robust(self.enrollments_table, data, [["Enrollment_ID", "ID"], ["Student_ID"], ["Course_Code"], ["Academic_Year", "Year"], ["Semester"], ["Current_Grade", "Grade"]])
+        elif idx == 6: self.populate_robust(self.class_sessions_table, data, [["Session_ID", "Class_Session_ID", "ID"], ["Schedule_ID"], ["Session_Date", "Date"], ["Topic"], ["Attendance_Count", "Attendance"]])
+        elif idx == 7: self.populate_robust(self.evaluations_table, data, [["Evaluation_ID", "ID"], ["Course_Code"], ["Clarity_Score", "Clarity"], ["Pacing_Score", "Pacing"], ["Comprehension_Score", "Comprehension"], ["Engagement_Score", "Engagement"], ["Evaluation_Date", "Date", "timestamp"], ["Study_Hours", "Hours"], ["Additional_Comments", "Comments"]])
+
+    def populate_robust(self, table, data, possible_keys_list):
+        table.setRowCount(len(data))
+        for r, row_data in enumerate(data):
+            # Magic trick: convert all keys in the database response to strictly lowercase
+            row_lower = {str(k).lower(): v for k, v in row_data.items()}
+
+            for c, possible_keys in enumerate(possible_keys_list):
+                val = "-"
+                # Check our fallback options against the lowercase dictionary
+                for key in possible_keys:
+                    key_lower = str(key).lower()
+                    if key_lower in row_lower and row_lower[key_lower] is not None:
+                        val = row_lower[key_lower]
+                        break
+                table.setItem(r, c, QTableWidgetItem(str(val)))
+
+    # ==========================================
+    # UNIVERSAL CRUD HELPER
+    # ==========================================
+    def get_selected(self, table):
+        rows = table.selectionModel().selectedRows()
+        return rows[0].row() if rows else None
+
+    def api_call(self, method, endpoint, payload=None, tab_idx=0):
         try:
-            guardians = requests.get("https://aware-api.onrender.com/api/admin/guardians").json().get("data", [])
-            self.guard_table.setRowCount(len(guardians))
-            self.in_stud_guard.blockSignals(True)
-            self.in_stud_guard.clear()
-            self.in_stud_guard.addItem("-- None --", None)
-            for i, g in enumerate(guardians):
-                self.guard_table.setItem(i, 0, QTableWidgetItem(str(g.get('Guardian_ID', ''))))
-                self.guard_table.setItem(i, 1, QTableWidgetItem(g.get('First_Name', '')))
-                self.guard_table.setItem(i, 2, QTableWidgetItem(g.get('Last_Name', '')))
-                self.guard_table.setItem(i, 3, QTableWidgetItem(g.get('Contact_Number', '')))
-                self.guard_table.setItem(i, 4, QTableWidgetItem(g.get('Email', '')))
-                self.in_stud_guard.addItem(f"{g.get('First_Name', '')} {g.get('Last_Name', '')}", g.get('Guardian_ID'))
-            self.in_stud_guard.blockSignals(False)
-
-            profs = requests.get("https://aware-api.onrender.com/api/admin/professors").json().get("data", [])
-            self.prof_table.setRowCount(len(profs))
-            for i, p in enumerate(profs):
-                self.prof_table.setItem(i, 0, QTableWidgetItem(str(p.get('Professor_ID', ''))))
-                self.prof_table.setItem(i, 1, QTableWidgetItem(p.get('First_Name', '')))
-                self.prof_table.setItem(i, 2, QTableWidgetItem(p.get('Last_Name', '')))
-                self.prof_table.setItem(i, 3, QTableWidgetItem(p.get('Username', '')))
-                self.prof_table.setItem(i, 4, QTableWidgetItem(p.get('Department', '')))
-
-            studs = requests.get("https://aware-api.onrender.com/api/admin/students").json().get("data", [])
-            self.stud_table.setRowCount(len(studs))
-            self.in_enr_student.clear()
-            for i, s in enumerate(studs):
-                self.stud_table.setItem(i, 0, QTableWidgetItem(str(s.get('Student_ID', ''))))
-                self.stud_table.setItem(i, 1, QTableWidgetItem(s.get('First_Name', '')))
-                self.stud_table.setItem(i, 2, QTableWidgetItem(s.get('Last_Name', '')))
-                self.stud_table.setItem(i, 3, QTableWidgetItem(s.get('Username', '')))
-                self.stud_table.setItem(i, 4, QTableWidgetItem(s.get('Guardian_Name', 'None')))
-                self.in_enr_student.addItem(f"{s.get('First_Name', '')} {s.get('Last_Name', '')}", s.get('Student_ID'))
-
-            courses = requests.get("https://aware-api.onrender.com/api/admin/courses").json().get("data", [])
-            self.course_table.setRowCount(len(courses))
-            self.in_enr_course.clear()
-            self.in_sched_course.clear()
-            for i, c in enumerate(courses):
-                code = c.get('Course_Code', '')
-                self.course_table.setItem(i, 0, QTableWidgetItem(code))
-                self.course_table.setItem(i, 1, QTableWidgetItem(c.get('Course_Title', '')))
-                self.in_enr_course.addItem(code, code)
-                self.in_sched_course.addItem(code, code)
-
-            enrolls = requests.get("https://aware-api.onrender.com/api/admin/enrollments").json().get("data", [])
-            self.enroll_table.setRowCount(len(enrolls))
-            for i, enr in enumerate(enrolls):
-                self.enroll_table.setItem(i, 0, QTableWidgetItem(str(enr.get('Enrollment_ID', ''))))
-                self.enroll_table.setItem(i, 1, QTableWidgetItem(enr.get('Student_Name', '')))
-                self.enroll_table.setItem(i, 2, QTableWidgetItem(enr.get('Course_Code', '')))
-                self.enroll_table.setItem(i, 3, QTableWidgetItem(enr.get('Academic_Year', '')))
-                self.enroll_table.setItem(i, 4, QTableWidgetItem(enr.get('Semester', '')))
-                self.enroll_table.setItem(i, 5, QTableWidgetItem(str(enr.get('Current_Grade', 'N/A'))))
-
-                sem_val = enr.get('Semester')
-                self.enroll_table.setItem(i, 4, QTableWidgetItem(str(sem_val) if sem_val else "N/A"))
-
-            scheds = requests.get("https://aware-api.onrender.com/api/admin/schedules").json().get("data", [])
-            self.sched_table.setRowCount(len(scheds))
-            for i, sch in enumerate(scheds):
-                self.sched_table.setItem(i, 0, QTableWidgetItem(str(sch.get('Schedule_ID', ''))))
-                self.sched_table.setItem(i, 1, QTableWidgetItem(sch.get('Course_Code', '')))
-                self.sched_table.setItem(i, 2, QTableWidgetItem(sch.get('Room_Name', '')))
-                self.sched_table.setItem(i, 3, QTableWidgetItem(sch.get('Schedule_Day', '')))
-                self.sched_table.setItem(i, 4, QTableWidgetItem(str(sch.get('Start_Time', ''))))
-                self.sched_table.setItem(i, 5, QTableWidgetItem(str(sch.get('End_Time', ''))))
-
-            # SMART EVALUATION LOADER: Anonymous & Date Formatted
-            evals = requests.get("https://aware-api.onrender.com/api/admin/evaluations").json().get("data", [])
-            if hasattr(self, 'eval_table'):
-                self.eval_table.setRowCount(len(evals))
-                for i, ev in enumerate(evals):
-                    self.eval_table.setItem(i, 0, QTableWidgetItem(str(ev.get('Evaluation_ID', ''))))
-                    self.eval_table.setItem(i, 1, QTableWidgetItem(ev.get('Course_Code', 'Unknown')))
-                    
-                    # Notice how the indices shifted because Student is gone! (2, 3, 4, 5)
-                    self.eval_table.setItem(i, 2, QTableWidgetItem(str(ev.get('Clarity_Score', '-'))))
-                    self.eval_table.setItem(i, 3, QTableWidgetItem(str(ev.get('Pacing_Score', '-'))))
-                    self.eval_table.setItem(i, 4, QTableWidgetItem(str(ev.get('Comprehension_Score', '-'))))
-                    self.eval_table.setItem(i, 5, QTableWidgetItem(str(ev.get('Engagement_Score', '-'))))
-                    
-                    # Grab our perfectly formatted date from MySQL
-                    date_str = ev.get('Formatted_Date') or "N/A"
-                    self.eval_table.setItem(i, 6, QTableWidgetItem(date_str))
-
+            url = f"{BASE_URL}{endpoint}"
+            if method == "POST": requests.post(url, json=payload).raise_for_status()
+            elif method == "PUT": requests.put(url, json=payload).raise_for_status()
+            elif method == "DELETE": requests.delete(url).raise_for_status()
+            QMessageBox.information(self, "Success", "Action completed!")
+            self.refresh_tab(tab_idx)
         except Exception as e:
-            print("Error loading data:", e)
+            QMessageBox.critical(self, "API Error", str(e))
+
+    # ==========================================
+    # ROUTERS FOR EACH TAB
+    # ==========================================
+    def handle_prof_crud(self, action):
+        t = self.professors_table
+        if action == "ADD":
+            dlg = ProfessorDialog(self)
+            if dlg.exec() == QDialog.DialogCode.Accepted: self.api_call("POST", "/api/admin/professors", dlg.get_data(), 0)
+        elif action == "EDIT":
+            r = self.get_selected(t)
+            if r is None: return QMessageBox.warning(self, "Error", "Select a row!")
+            data = {"First_Name": t.item(r,1).text(), "Last_Name": t.item(r,2).text(), "Department": t.item(r,3).text()}
+            dlg = ProfessorDialog(self, data)
+            if dlg.exec() == QDialog.DialogCode.Accepted: self.api_call("PUT", f"/api/admin/professors/{t.item(r,0).text()}", dlg.get_data(), 0)
+        elif action == "DELETE":
+            r = self.get_selected(t)
+            if r is not None and QMessageBox.question(self, "Confirm", "Delete?") == QMessageBox.StandardButton.Yes:
+                self.api_call("DELETE", f"/api/admin/professors/{t.item(r,0).text()}", tab_idx=0)
+
+    def handle_guardian_crud(self, action):
+        t = self.guardians_table
+        if action == "ADD":
+            dlg = GuardianDialog(self)
+            if dlg.exec() == QDialog.DialogCode.Accepted: self.api_call("POST", "/api/admin/guardians", dlg.get_data(), 1)
+        elif action == "EDIT":
+            r = self.get_selected(t)
+            if r is None: return
+            data = {"First_Name": t.item(r,1).text(), "Last_Name": t.item(r,2).text(), "Email": t.item(r,3).text(), "Phone": t.item(r,4).text()}
+            dlg = GuardianDialog(self, data)
+            if dlg.exec() == QDialog.DialogCode.Accepted: self.api_call("PUT", f"/api/admin/guardians/{t.item(r,0).text()}", dlg.get_data(), 1)
+        elif action == "DELETE":
+            r = self.get_selected(t)
+            if r is not None: self.api_call("DELETE", f"/api/admin/guardians/{t.item(r,0).text()}", tab_idx=1)
+
+    def handle_student_crud(self, action):
+        t = self.students_table
+        if action == "ADD":
+            dlg = StudentDialog(self)
+            if dlg.exec() == QDialog.DialogCode.Accepted: self.api_call("POST", "/api/admin/students", dlg.get_data(), 2)
+        elif action == "EDIT":
+            r = self.get_selected(t)
+            if r is None: return
+            data = {"First_Name": t.item(r,1).text(), "Last_Name": t.item(r,2).text(), "Guardian_ID": t.item(r,3).text()}
+            dlg = StudentDialog(self, data)
+            if dlg.exec() == QDialog.DialogCode.Accepted: self.api_call("PUT", f"/api/admin/students/{t.item(r,0).text()}", dlg.get_data(), 2)
+        elif action == "DELETE":
+            r = self.get_selected(t)
+            if r is not None: self.api_call("DELETE", f"/api/admin/students/{t.item(r,0).text()}", tab_idx=2)
+
+    def handle_course_crud(self, action):
+        t = self.courses_table
+        if action == "ADD":
+            dlg = CourseDialog(self)
+            if dlg.exec() == QDialog.DialogCode.Accepted: self.api_call("POST", "/api/admin/courses", dlg.get_data(), 3)
+        elif action == "EDIT":
+            r = self.get_selected(t)
+            if r is None: return
+            data = {"Course_Code": t.item(r,0).text(), "Course_Title": t.item(r,1).text()}
+            dlg = CourseDialog(self, data)
+            if dlg.exec() == QDialog.DialogCode.Accepted: self.api_call("PUT", f"/api/admin/courses/{t.item(r,0).text()}", dlg.get_data(), 3)
+        elif action == "DELETE":
+            r = self.get_selected(t)
+            if r is not None: self.api_call("DELETE", f"/api/admin/courses/{t.item(r,0).text()}", tab_idx=3)
+
+    def handle_schedule_crud(self, action):
+        t = self.schedules_table
+        if action == "ADD":
+            dlg = ScheduleDialog(self)
+            if dlg.exec() == QDialog.DialogCode.Accepted: self.api_call("POST", "/api/admin/schedules", dlg.get_data(), 4)
+        elif action == "EDIT":
+            r = self.get_selected(t)
+            if r is None: return
+            data = {"Course_Code": t.item(r,1).text(), "Prof_ID": t.item(r,2).text(), "Day": t.item(r,3).text(), "Start_Time": t.item(r,4).text(), "End_Time": t.item(r,5).text()}
+            dlg = ScheduleDialog(self, data)
+            if dlg.exec() == QDialog.DialogCode.Accepted: self.api_call("PUT", f"/api/admin/schedules/{t.item(r,0).text()}", dlg.get_data(), 4)
+        elif action == "DELETE":
+            r = self.get_selected(t)
+            if r is not None: self.api_call("DELETE", f"/api/admin/schedules/{t.item(r,0).text()}", tab_idx=4)
+
+    def handle_enrollment_crud(self, action):
+        t = self.enrollments_table
+        if action == "ADD":
+            dlg = EnrollmentDialog(self)
+            if dlg.exec() == QDialog.DialogCode.Accepted: self.api_call("POST", "/api/admin/enrollments", dlg.get_data(), 5)
+        elif action == "EDIT":
+            r = self.get_selected(t)
+            if r is None: return
+            data = {"Student_ID": t.item(r,1).text(), "Course_Code": t.item(r,2).text(), "Academic_Year": t.item(r,3).text(), "Semester": t.item(r,4).text(), "Current_Grade": t.item(r,5).text()}
+            dlg = EnrollmentDialog(self, data)
+            if dlg.exec() == QDialog.DialogCode.Accepted: self.api_call("PUT", f"/api/admin/enrollments/{t.item(r,0).text()}", dlg.get_data(), 5)
+        elif action == "DELETE":
+            r = self.get_selected(t)
+            if r is not None: self.api_call("DELETE", f"/api/admin/enrollments/{t.item(r,0).text()}", tab_idx=5)
+
+    def handle_session_crud(self, action):
+        t = self.class_sessions_table
+        if action == "ADD":
+            dlg = SessionDialog(self)
+            if dlg.exec() == QDialog.DialogCode.Accepted: self.api_call("POST", "/api/admin/sessions", dlg.get_data(), 6)
+        elif action == "EDIT":
+            r = self.get_selected(t)
+            if r is None: return
+            data = {"Schedule_ID": t.item(r,1).text(), "Session_Date": t.item(r,2).text(), "Topic": t.item(r,3).text()}
+            dlg = SessionDialog(self, data)
+            if dlg.exec() == QDialog.DialogCode.Accepted: self.api_call("PUT", f"/api/admin/sessions/{t.item(r,0).text()}", dlg.get_data(), 6)
+        elif action == "DELETE":
+            r = self.get_selected(t)
+            if r is not None: self.api_call("DELETE", f"/api/admin/sessions/{t.item(r,0).text()}", tab_idx=6)
+
+    def handle_eval_crud(self, action):
+        t = self.evaluations_table
+        if action == "DELETE":
+            r = self.get_selected(t)
+            if r is not None: self.api_call("DELETE", f"/api/admin/evaluations/{t.item(r,0).text()}", tab_idx=7)

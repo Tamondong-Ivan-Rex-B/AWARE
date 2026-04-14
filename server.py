@@ -6,6 +6,9 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 import math
 
+from dotenv import load_dotenv
+load_dotenv()
+
 app = Flask(__name__)
 CORS(app)
 

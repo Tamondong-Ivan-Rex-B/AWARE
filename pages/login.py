@@ -5,6 +5,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont, QCursor
+from config import BASE_URL
 
 class LoginPage(QWidget):
     def __init__(self, main_window):
@@ -113,7 +114,7 @@ class LoginPage(QWidget):
         try:
             # Send the credentials to the Flask server on port 5001
             response = requests.post(
-                "https://aware-api.onrender.com/login",
+                f"{BASE_URL}/login",
                 json={"username": username, "password": password, "role": role},
                 timeout=5,
             )

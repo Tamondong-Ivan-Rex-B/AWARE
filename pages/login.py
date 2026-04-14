@@ -1,15 +1,15 @@
 import requests
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QPushButton,
-    QLineEdit, QFrame, QMessageBox, QComboBox
+    QLineEdit, QFrame, QMessageBox, QComboBox, QCheckBox
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QFont, QCursor
 from config import BASE_URL
 
-# ==================
+# ==========================================
 # API WORKER THREAD
-# ==================
+# ==========================================
 class LoginWorker(QThread):
     finished_success = pyqtSignal(dict)
     finished_auth_error = pyqtSignal(str)
@@ -26,7 +26,7 @@ class LoginWorker(QThread):
             response = requests.post(
                 f"{BASE_URL}/login",
                 json={"username": self.username, "password": self.password, "role": self.role},
-                timeout=15, # Gave it 15 seconds just in case Render is waking up!
+                timeout=15, 
             )
 
             if response.status_code == 200:
@@ -97,6 +97,12 @@ class LoginPage(QWidget):
         self.pass_input.setEchoMode(QLineEdit.EchoMode.Password)
         self.pass_input.returnPressed.connect(self.handle_login)
 
+        # Show Password Checkbox
+        self.show_pass_cb = QCheckBox("Show Password")
+        self.show_pass_cb.setStyleSheet("color: #64748b; font-size: 12px; margin-top: -5px;")
+        self.show_pass_cb.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.show_pass_cb.toggled.connect(self.toggle_password_visibility)
+
         # Sign In button
         self.login_btn = QPushButton("Sign In")
         self.login_btn.setObjectName("PrimaryBtn")
@@ -119,6 +125,7 @@ class LoginPage(QWidget):
         card_layout.addWidget(self.username_input)
         card_layout.addWidget(password_label)
         card_layout.addWidget(self.pass_input)
+        card_layout.addWidget(self.show_pass_cb) # Checkbox below the password field
         card_layout.addWidget(self.login_btn)
         card_layout.addWidget(self.demo_text)
 
@@ -136,6 +143,13 @@ class LoginPage(QWidget):
         layout.addSpacing(10)
         layout.addWidget(card, alignment=Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(back_btn, alignment=Qt.AlignmentFlag.AlignCenter)
+
+    # Logic to toggle the echo mode
+    def toggle_password_visibility(self, checked):
+        if checked:
+            self.pass_input.setEchoMode(QLineEdit.EchoMode.Normal)
+        else:
+            self.pass_input.setEchoMode(QLineEdit.EchoMode.Password)
 
     def handle_login(self):
         """Starts the background worker to handle the login request."""
@@ -182,4 +196,5 @@ class LoginPage(QWidget):
         """Wipes the text boxes clean when someone logs out."""
         self.username_input.clear()
         self.pass_input.clear()
+        self.show_pass_cb.setChecked(False) # Reset the checkbox
         self.reset_login_btn()

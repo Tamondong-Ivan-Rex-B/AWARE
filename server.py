@@ -3,7 +3,7 @@ from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 import mysql.connector
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime
+from datetime import datetime, date
 import math
 
 # FOR LOCAL ONLY
@@ -15,6 +15,14 @@ CORS(app)
 
 # --- GLOBAL TIME MACHINE FOR TESTING ---
 GLOBAL_TEST_DATE = None
+
+# ==========================================
+# SEMESTER SCHEDULE CONFIGURATION
+# ==========================================
+SEMESTER_START = date(2025, 12, 9)
+SEMBREAK_START = date(2025, 12, 20)
+SEMBREAK_END = date(2026, 1, 5)
+CLASSES_RESUME = date(2026, 1, 6)
 
 # --- Database Connection ---
 def get_db_connection():
@@ -141,29 +149,12 @@ def submit_evaluation():
     db = get_db_connection()
     cursor = db.cursor()
     try:
-        if GLOBAL_TEST_DATE:
-            submission_date = GLOBAL_TEST_DATE
-        else:
-            submission_date = datetime.now().date() 
-
+        submission_date = GLOBAL_TEST_DATE if GLOBAL_TEST_DATE else datetime.now().date()
         current_week_num = calculate_week(submission_date)["week_number"]
         
-        cursor.execute("SELECT Course_Code FROM class_session WHERE Session_ID = %s", (session_id,))
-        course_data = cursor.fetchone()
-        
-        if course_data:
-            course_code = course_data[0]
-            cursor.execute("""
-                SELECT e.Submission_Date 
-                FROM evaluation e
-                JOIN class_session cs ON e.Session_ID = cs.Session_ID
-                WHERE e.Student_ID = %s AND cs.Course_Code = %s
-            """, (student_id, course_code))
-            
-            past_evals = cursor.fetchall()
-            for eval_record in past_evals:
-                if calculate_week(eval_record[0])["week_number"] == current_week_num:
-                    return jsonify({"status": "error", "message": f"You already submitted an evaluation for this course in Week {current_week_num}!"}), 400
+        cursor.execute("SELECT Evaluation_ID FROM evaluation WHERE Student_ID = %s AND Session_ID = %s", (student_id, session_id))
+        if cursor.fetchone():
+            return jsonify({"status": "error", "message": "You have already evaluated this specific session topic!"}), 400
 
         sql = """INSERT INTO evaluation 
                  (Session_ID, Student_ID, Clarity_Score, Pacing_Score, Comprehension_Score, Engagement_Score, Study_Hours, Additional_Comments, Submission_Date) 
@@ -293,20 +284,26 @@ def get_student_stats():
 
 # --- Date Calculation ---
 def calculate_week(target_date):
-    start_date = datetime(2025, 12, 9)
-    break_start = datetime(2025, 12, 20)
-    break_end = datetime(2026, 1, 5)
-    resume_date = datetime(2026, 1, 6)
+    if isinstance(target_date, datetime):
+        target_date = target_date.date()
+    elif isinstance(target_date, str):
+        target_date = datetime.strptime(target_date, '%Y-%m-%d %H:%M:%S').date()
 
-    if target_date < start_date: return {"status": "Not Started", "week_number": 0}
-    if break_start <= target_date <= break_end: return {"status": "Sembreak", "week_number": 0}
-    if start_date <= target_date < break_start:
-        week = math.floor((target_date - start_date).days / 7) + 1
+    if target_date < SEMESTER_START: 
+        return {"status": "Not Started", "week_number": 0}
+        
+    if SEMBREAK_START <= target_date <= SEMBREAK_END: 
+        return {"status": "Sembreak", "week_number": 0}
+        
+    if SEMESTER_START <= target_date < SEMBREAK_START:
+        week = math.floor((target_date - SEMESTER_START).days / 7) + 1
         return {"status": "Active", "week_number": week}
-    if target_date >= resume_date:
-        week = math.floor((11 + (target_date - resume_date).days) / 7) + 1
+        
+    if target_date >= CLASSES_RESUME:
+        week = math.floor((11 + (target_date - CLASSES_RESUME).days) / 7) + 1
         status = "Prelim Exam Week" if week == 6 else "Midterm Exam Week" if week == 12 else "Final Exam Week" if week == 18 else "Active"
         return {"status": status, "week_number": week}
+        
     return {"status": "Unknown", "week_number": 0}
 
 @app.route('/api/week', methods=['GET'])

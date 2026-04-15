@@ -164,7 +164,7 @@ def submit_evaluation():
         db.commit()
 
         # Streak System
-        today = submission_date.date()
+        today = submission_date
         cursor.execute("SELECT streak_count, best_streak, last_study_date, freeze_count FROM student WHERE Student_ID = %s", (student_id,))
         student = cursor.fetchone()
 

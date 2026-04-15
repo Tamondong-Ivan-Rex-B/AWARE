@@ -319,6 +319,10 @@ class ManageDataWindow(QWidget):
         btn_del.clicked.connect(lambda: crud_router("DELETE"))
         btn_layout.addWidget(btn_del)
         btn_layout.addStretch()
+        search_box = QLineEdit()
+        search_box.setPlaceholderText(f"🔍 Search {name}...")
+        search_box.setFixedWidth(250)
+        btn_layout.addWidget(search_box)
         layout.addLayout(btn_layout)
         table = QTableWidget()
         table.setColumnCount(len(headers))
@@ -326,8 +330,21 @@ class ManageDataWindow(QWidget):
         table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         layout.addWidget(table)
+        search_box.textChanged.connect(lambda text, tbl=table: self.filter_table(text, tbl))
         setattr(self, f"{name.lower().replace(' ', '_')}_table", table)
         return tab
+    
+    def filter_table(self, text, table):
+        search_text = text.lower()
+        for row in range(table.rowCount()):
+            row_matches = False
+            for col in range(table.columnCount()):
+                item = table.item(row, col)
+                if item and search_text in item.text().lower():
+                    row_matches = True
+                    break
+            
+            table.setRowHidden(row, not row_matches)
 
     def refresh_tab(self, index):
         self.loaded_tabs[index] = False 

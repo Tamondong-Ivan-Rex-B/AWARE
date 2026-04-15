@@ -7,14 +7,14 @@ from datetime import datetime, date
 import math
 
 # FOR LOCAL ONLY
-# from dotenv import load_dotenv
-# load_dotenv()
+from dotenv import load_dotenv
+load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
 
 # --- GLOBAL TIME MACHINE FOR TESTING ---
-GLOBAL_TEST_DATE = None
+GLOBAL_TEST_DATE = date(2026, 4, 15)
 
 # ==========================================
 # SEMESTER SCHEDULE CONFIGURATION
@@ -164,7 +164,7 @@ def submit_evaluation():
         db.commit()
 
         # Streak System
-        today = submission_date
+        today = submission_date.date()
         cursor.execute("SELECT streak_count, best_streak, last_study_date, freeze_count FROM student WHERE Student_ID = %s", (student_id,))
         student = cursor.fetchone()
 

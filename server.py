@@ -141,7 +141,11 @@ def submit_evaluation():
     db = get_db_connection()
     cursor = db.cursor()
     try:
-        submission_date = GLOBAL_TEST_DATE if GLOBAL_TEST_DATE else datetime.now()
+        if GLOBAL_TEST_DATE:
+            submission_date = GLOBAL_TEST_DATE
+        else:
+            submission_date = datetime.now().date() 
+
         current_week_num = calculate_week(submission_date)["week_number"]
         
         cursor.execute("SELECT Course_Code FROM class_session WHERE Session_ID = %s", (session_id,))

@@ -100,12 +100,29 @@ STYLESHEET = """
         padding: 4px;
     }
     
+    /* POPUP MESSAGE BOX STYLING */
+    QMessageBox {
+        background-color: white;
+    }
+    QMessageBox QLabel {
+        color: #0f172a;
+        font-size: 14px;
+    }
+    QMessageBox QPushButton {
+        background-color: #5071c1;
+        color: white;
+        border-radius: 4px;
+        padding: 6px 15px;
+        font-weight: bold;
+    }
+
     /* --- ANALYTICS SPECIFIC --- */
     PlotWidget {
         border: 1px solid #e2e8f0;
         border-radius: 8px;
     }
 """
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -130,6 +147,7 @@ class MainWindow(QMainWindow):
             if hasattr(self.dashboard_page, "update_user_info"):
                 self.dashboard_page.update_user_info(data)
         self.stacked_widget.setCurrentIndex(index)
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

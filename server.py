@@ -46,9 +46,10 @@ def login():
     if not username or not password:
         return jsonify({"status": "error", "message": "Username and password are required."}), 400
 
-    db = get_db_connection()
-    if not db:
-        return jsonify({"status": "error", "message": "Database connection failed."}), 500
+    try:
+        db = get_db_connection()
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
     cursor = db.cursor(dictionary=True)
     try:
@@ -134,121 +135,57 @@ def get_topics():
 # --- Submit Evaluation Route ---
 @app.route("/submit_evaluation", methods=["POST"])
 def submit_evaluation():
-
-    data = request.json
-<<<<<<< HEAD
-=======
-
-    # TASK 2 - DUPLICATE CHECK
-    # Extract values FIRST (required for duplicate check)
->>>>>>> 232b05e (Task 2: Duplicate Submission Prevention)
-    student_id = data.get("student_id")
-    session_id = data.get("session_id")
-
-    clarity_score = data.get("clarity_score")
-    pacing_score = data.get("pacing_score")
-    comprehension_score = data.get("comprehension_score")
-    engagement_score = data.get("engagement_score")
-<<<<<<< HEAD
-    
-=======
-
-    # Handle optional fields
->>>>>>> 232b05e (Task 2: Duplicate Submission Prevention)
-    study_hours = data.get("study_hours")
-    if not study_hours or study_hours == "": study_hours = 0
-    comments = data.get("comments", "")
-
-    # Connect to database
-    db = get_db_connection()
-<<<<<<< HEAD
-    cursor = db.cursor()
     try:
-        submission_date = GLOBAL_TEST_DATE if GLOBAL_TEST_DATE else datetime.now().date()
-        current_week_num = calculate_week(submission_date)["week_number"]
-        
-        cursor.execute("SELECT Evaluation_ID FROM evaluation WHERE Student_ID = %s AND Session_ID = %s", (student_id, session_id))
-        if cursor.fetchone():
-            return jsonify({"status": "error", "message": "You have already evaluated this specific session topic!"}), 400
+        db = get_db_connection()
+        data = request.json
 
-        sql = """INSERT INTO evaluation 
-                 (Session_ID, Student_ID, Clarity_Score, Pacing_Score, Comprehension_Score, Engagement_Score, Study_Hours, Additional_Comments, Submission_Date) 
-                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)"""
-        val = (session_id, student_id, clarity_score, pacing_score, comprehension_score, engagement_score, study_hours, comments, submission_date)
-        cursor.execute(sql, val)
-        db.commit()
+        student_id = data.get("student_id")
+        session_id = data.get("session_id")
 
-        # Streak System
-        today = submission_date.date()
-        cursor.execute("SELECT streak_count, best_streak, last_study_date, freeze_count FROM student WHERE Student_ID = %s", (student_id,))
-        student = cursor.fetchone()
+        clarity_score = data.get("clarity_score")
+        pacing_score = data.get("pacing_score")
+        comprehension_score = data.get("comprehension_score")
+        engagement_score = data.get("engagement_score")
 
-        if student:
-            streak, best, last_date, freeze_count = student
-            new_streak = 1
-            used_freeze = False
+        study_hours = data.get("study_hours", 0)
 
-            if last_date:
-                diff = current_week_num - calculate_week(last_date)["week_number"]
-                if diff == 1: new_streak = streak + 1
-                elif diff == 0: new_streak = streak
-                else:
-                    if freeze_count > 0:
-                        new_streak = streak
-                        freeze_count -= 1
-                        used_freeze = True
-                    else: new_streak = 1
-            else:
-                new_streak = 1
+        try:
+            study_hours = float(study_hours)
+        except (TypeError, ValueError):
+            study_hours = 0.0
 
-            if streak < 3 and new_streak >= 3 and freeze_count == 0:
-                freeze_count = 1
+        # 🔥 ADD THIS RULE (CRITICAL FOR YOUR STREAK SYSTEM)
+        if study_hours < 1:
+            return jsonify({
+                "status": "success",
+                "message": "Evaluation saved but streak NOT updated (insufficient study hours)."
+            }), 200
 
-            new_best = max(best or 0, new_streak)
-            cursor.execute("""
-                UPDATE student SET streak_count = %s, best_streak = %s, last_study_date = %s, freeze_count = %s, streak_frozen = %s
-                WHERE Student_ID = %s
-            """, (new_streak, new_best, today, freeze_count, 1 if used_freeze else 0, student_id))
-            db.commit()
+        comments = data.get("comments", "")
 
-        return jsonify({"status": "success", "message": "Evaluation submitted successfully!"}), 200
-=======
-    if not db:
-        return jsonify({"status": "error", "message": "Database connection failed."}), 500
+        cursor = db.cursor(dictionary=True)
 
-    try:
-        # START OF TASK 2 (DUPLICATE CHECK)
-
-        check_cursor = db.cursor(dictionary=True)
-
-        check_sql = """
-            SELECT COUNT(*) AS count 
-            FROM evaluation 
+        # Duplicate Submission Prevention/check
+        cursor.execute("""
+            SELECT COUNT(*) AS count
+            FROM evaluation
             WHERE Student_ID = %s AND Session_ID = %s
-        """
+        """, (student_id, session_id))
 
-        check_cursor.execute(check_sql, (student_id, session_id))
-        result = check_cursor.fetchone()
+        result = cursor.fetchone()
 
         if result["count"] > 0:
-            return jsonify({
-                "status": "error",
-                "message": "Session already evaluated."
-            }), 400
+            return jsonify({"status": "error", "message": "Session already evaluated."}), 400
 
-        # END OF TASK 2 (DUPLICATE CHECK)
+        # Insert evaluation
+        submission_date = GLOBAL_TEST_DATE or datetime.now().date()
 
-        cursor = db.cursor()
-
-        submission_date = GLOBAL_TEST_DATE if GLOBAL_TEST_DATE else datetime.now()
-
-        sql = """
+        cursor.execute("""
             INSERT INTO evaluation 
-            (Session_ID, Student_ID, Clarity_Score, Pacing_Score, Comprehension_Score, Engagement_Score, Study_Hours, Additional_Comments, Submission_Date) 
+            (Session_ID, Student_ID, Clarity_Score, Pacing_Score, Comprehension_Score,
+             Engagement_Score, Study_Hours, Additional_Comments, Submission_Date)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """
-
-        val = (
+        """, (
             session_id,
             student_id,
             clarity_score,
@@ -258,71 +195,82 @@ def submit_evaluation():
             study_hours,
             comments,
             submission_date
-        )
+        ))
 
-        cursor.execute(sql, val)
         db.commit()
 
-        return jsonify({
-            "status": "success",
-            "message": "Evaluation submitted successfully!"
-        }), 200
+        # ---- STREAK LOGIC ----
+        today = submission_date  # OK, but better rename for clarity
 
->>>>>>> 232b05e (Task 2: Duplicate Submission Prevention)
+        cursor.execute("""
+            SELECT streak_count, best_streak, last_study_date, freeze_count
+            FROM student
+            WHERE Student_ID = %s
+        """, (student_id,))
+
+        student = cursor.fetchone()
+
+        if student:
+            streak = student["streak_count"] or 0
+            best = student["best_streak"] or 0
+            last_date = student["last_study_date"]
+            freeze_count = student["freeze_count"] or 0
+
+            new_streak = 1
+            used_freeze = False
+
+            if last_date:
+                if isinstance(last_date, str):
+                    last_date = datetime.strptime(last_date, "%Y-%m-%d").date()
+
+                diff = (today - last_date).days
+
+                if diff == 1:
+                    new_streak = streak + 1
+                elif diff == 0:
+                    new_streak = streak
+                else:
+                    if freeze_count > 0:
+                        new_streak = streak
+                        freeze_count -= 1
+                        used_freeze = True
+                    else:
+                        new_streak = 1
+
+            if streak < 3 and new_streak >= 3 and freeze_count == 0:
+                freeze_count += 1
+
+            new_best = max(best, new_streak)
+
+            cursor.execute("""
+                UPDATE student
+                SET streak_count=%s,
+                    best_streak=%s,
+                    last_study_date=%s,
+                    freeze_count=%s,
+                    streak_frozen=%s
+                WHERE Student_ID=%s
+            """, (
+                new_streak,
+                new_best,
+                today,
+                freeze_count,
+                1 if used_freeze else 0,
+                student_id
+            ))
+
+            db.commit()
+
+        return jsonify({"status": "success", "message": "Evaluation submitted successfully!"}), 200
+
     except Exception as e:
-        db.rollback()
         return jsonify({"status": "error", "message": str(e)}), 500
 
     finally:
-        db.close()
-
-# --- Dashboard Data Route ---
-@app.route("/api/get_dashboard_data", methods=["GET"])
-def get_dashboard_data():
-    prof_id = request.args.get('prof_id') 
-    db = get_db_connection()
-    cursor = db.cursor(dictionary=True)
-    try:
-        where_clause = "WHERE cs.Professor_ID = %s" if prof_id else ""
-        params = (prof_id,) if prof_id else ()
-
-        cursor.execute(f"""
-            SELECT AVG(e.Pacing_Score) AS avg_pacing, AVG(e.Comprehension_Score) AS avg_comp
-            FROM evaluation e JOIN class_session cs ON e.Session_ID = cs.Session_ID {where_clause}
-        """, params)
-        averages = cursor.fetchone()
-
-        cursor.execute(f"""
-            SELECT cs.Course_Code, cs.Topic, e.Clarity_Score, e.Pacing_Score, e.Comprehension_Score,
-                e.Engagement_Score, e.Study_Hours, e.Additional_Comments AS Comments, e.Submission_Date,
-                CONCAT(p.First_Name, ' ', p.Last_Name) AS Professor_Name,
-                CONCAT(s.First_Name, ' ', s.Last_Name) AS Student_Name
-            FROM evaluation e
-            JOIN class_session cs ON e.Session_ID = cs.Session_ID
-            JOIN course c ON cs.Course_Code = c.Course_Code
-            JOIN professor p ON cs.Professor_ID = p.Professor_ID 
-            JOIN student s ON e.Student_ID = s.Student_ID
-            {where_clause} ORDER BY e.Evaluation_ID DESC
-        """, params)
-        evaluations = cursor.fetchall()
-
-        for ev in evaluations:
-            sub_date = ev.get("Submission_Date")
-            if sub_date:
-                week_info = calculate_week(sub_date)
-                ev["Week_Status"] = week_info["status"]
-                ev["Week_Number"] = week_info["week_number"]
-                ev["Submission_Date"] = sub_date.strftime("%Y-%m-%d %H:%M") 
-            else:
-                ev["Week_Status"] = "Old Data"
-                ev["Week_Number"] = 0
-
-        return jsonify({"averages": averages, "evaluations": evaluations}), 200
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-    finally:
-        db.close()
-
+        try:
+            db.close()
+        except:
+            pass
 # --- Student Stats Route ---
 @app.route("/api/get_student_stats", methods=["GET"])
 def get_student_stats():

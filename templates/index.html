@@ -514,7 +514,7 @@
                     
                     <div class="stat-box" style="border-left: 4px solid #ff9800; margin-bottom: 12px;">
                         <p style="color: var(--text-gray); font-size: 13px;">🔥 Current Streak</p>
-                        <h3 id="ui-current-streak" style="color: #ff9800;">0 Weeks</h3>
+                        <h3 id="ui-current-streak" style="color: #ff9800;">0 Days</h3>
                     </div>
 
                     <div class="stat-box" style="border-left: 4px solid #2196f3; margin-bottom: 12px;">
@@ -524,7 +524,7 @@
 
                     <div class="stat-box" style="border-left: 4px solid #4caf50;">
                         <p style="color: var(--text-gray); font-size: 13px;">🏆 Best Streak</p>
-                        <h3 id="ui-best-streak" style="color: #4caf50;">0 Weeks</h3>
+                        <h3 id="ui-best-streak" style="color: #4caf50;">0 Days</h3>
                     </div>
                 </div>
             </div>
@@ -617,8 +617,16 @@
             }
 
             // --- Submission to Backend ---
+            let lastSubmissionTime = 0; 
             function submitPulseCheck() {
-                if (isSubmitting) return;
+                const now = Date.now();
+
+                if (now - lastSubmissionTime < 5000) {
+                    alert("Please wait before submitting again.");
+                    return;
+                }
+
+                lastSubmissionTime = now;
 
                 const course = document.getElementById('courseSelect').value.trim();
                 const topic = document.getElementById('topicsSelect').value.trim();
@@ -636,7 +644,8 @@
                 }
 
                 const key = `${currentStudentId}-${topic}`;
-
+                
+                
                 if (lastSubmissionKey === key) {
                     alert("Duplicate submission blocked.");
                     return;
@@ -663,14 +672,19 @@
                     .then(response => response.json())
                     .then(data => {
                         isSubmitting = false;
-
+                       
                         if (data.status === "success") {
-                            lastSubmissionKey = key;
-                            alert("Pulse Check Submitted Successfully!");
+                        lastSubmissionKey = key;
+                        alert("Pulse Check Submitted Successfully!");
 
-                            document.getElementById('comments').value = "";
-                            document.getElementById('studyHours').value = "";
-                        } else {
+                        document.getElementById('comments').value = "";
+                        document.getElementById('studyHours').value = "";
+
+                        // 🔥 ADD THIS: refresh streak + freeze + stats UI
+                        loadStudentStats();
+                    }
+                     
+                        else {
                             alert("Error: " + data.message);
                         }
                     })
@@ -724,42 +738,70 @@
                 fetch(`https://aware-api.onrender.com/api/get_student_stats?student_id=${currentStudentId}`)
                     .then(response => response.json())
                     .then(data => {
+
+                        // --- basic stats ---
                         document.getElementById('statTotalSubmissions').innerText = data.total_submissions;
                         document.getElementById('heroSubmissionsDisplay').innerText = `${data.total_submissions} / 18`;
-                        document.getElementById('ui-current-streak').textContent = data.streak + " Weeks";
+
+                        // --- helper for proper singular/plural ---
+                        function pluralize(value, singular, plural) {
+                            return value + " " + (value === 1 ? singular : plural);
+                        }
+
+                        
+                        // SAFER DISPLAY LAYER (prevents fake "week-based or wrong unit streaks")
+                        function formatDays(value) {
+                            value = parseInt(value || 0);
+
+                            if (value <= 0) return "0 Days";
+
+                            return value === 1 ? "1 Day" : `${value} Days`;
+                        }
+
+                        // Current streak
+                        document.getElementById('ui-current-streak').textContent =
+                            formatDays(data.streak);
+
+                        // Best streak
+                        document.getElementById('ui-best-streak').textContent =
+                            formatDays(data.best_streak);
+
+                        // --- freezes ---####
                         document.getElementById('ui-freezes').textContent = data.freeze;
-                        document.getElementById('ui-best-streak').textContent = data.best_streak + " Weeks";
 
-                        const recentContainer = document.getElementById('recentSubmissionsContainer');
-                        recentContainer.innerHTML = '<h3 style="margin-bottom: 16px;">Recent Submissions</h3>';
-
+                        // --- color logic for streak ---
                         if (data.streak === 0) {
                             document.getElementById('ui-current-streak').style.color = "#888";
                         } else {
-                            document.getElementById('ui-current-streak').style.color = "#ff9800"; // Orange
+                            document.getElementById('ui-current-streak').style.color = "#ff9800";
                         }
-                        if (data.recent_evals.length === 0) {
+
+                        // --- recent submissions ---
+                        const recentContainer = document.getElementById('recentSubmissionsContainer');
+                        recentContainer.innerHTML = '<h3 style="margin-bottom: 16px;">Recent Submissions</h3>';
+
+                        if (!data.recent_evals || data.recent_evals.length === 0) {
                             recentContainer.innerHTML += '<p style="color: var(--text-gray); font-size: 14px;">No evaluations submitted yet.</p>';
                         } else {
                             data.recent_evals.forEach(evaluation => {
                                 recentContainer.innerHTML += `
-                            <div class="recent-item">
-                                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                                    <strong>${evaluation.Course_Code}</strong> 
-                                    <span style="color: var(--text-gray); font-size: 12px; text-align:right;">${evaluation.Topic}</span>
-                                </div>
-                                <div>
-                                    <span class="badge">Understanding: ${evaluation.Comprehension_Score}/5</span>
-                                    <span class="badge">Engagement: ${evaluation.Engagement_Score}/5</span>
-                                </div>
-                            </div>
-                        `;
+                                    <div class="recent-item">
+                                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                                            <strong>${evaluation.Course_Code}</strong>
+                                            <span style="color: var(--text-gray); font-size: 12px; text-align:right;">${evaluation.Topic}</span>
+                                        </div>
+                                        <div>
+                                            <span class="badge">Understanding: ${evaluation.Comprehension_Score}/5</span>
+                                            <span class="badge">Engagement: ${evaluation.Engagement_Score}/5</span>
+                                        </div>
+                                    </div>
+                                `;
                             });
                         }
                     })
                     .catch(err => console.error("Error fetching stats:", err));
             }
-
+            
             const apiUrl = 'https://aware-api.onrender.com/api/week';
 
             fetch(apiUrl)

@@ -110,13 +110,6 @@ class LoginPage(QWidget):
         self.login_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.login_btn.clicked.connect(self.handle_login)
 
-        self.demo_text = QLabel(
-            "<b>Demo (Admin):</b> admin / admin123<br>"
-            "<b>Demo (Professor):</b> refer to database / prof123"
-        )
-        self.demo_text.setObjectName("DemoBox")
-        self.demo_text.setTextFormat(Qt.TextFormat.RichText)
-
         card_layout.addWidget(card_title)
         card_layout.addWidget(role_label)
         card_layout.addWidget(self.role_input)
@@ -126,7 +119,6 @@ class LoginPage(QWidget):
         card_layout.addWidget(self.pass_input)
         card_layout.addWidget(self.show_pass_cb) 
         card_layout.addWidget(self.login_btn)
-        card_layout.addWidget(self.demo_text)
 
         back_btn = QPushButton("← Back to Home")
         back_btn.setStyleSheet("color: #64748b; background: transparent; border: none; font-weight: bold;")

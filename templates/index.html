@@ -118,16 +118,6 @@
             font-size: 14px;
         }
 
-        .demo-box {
-            background-color: #f8fafc;
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            padding: 16px;
-            margin-top: 24px;
-            font-size: 13px;
-            color: var(--text-gray);
-        }
-
         /* --- DASHBOARD VIEW --- */
         #dashboard-view {
             max-width: 1200px;
@@ -343,20 +333,12 @@
                     </label>
                 </div>
             </div>
-
             <button class="btn-primary" style="width: 100%; padding: 12px;" onclick="handleLogin()">Sign In</button>
-
-            <div class="demo-box">
-                <strong>Demo Credentials:</strong><br>
-                Student: aabad / student123 <br>
-                Student: refer to database / student123
-            </div>
         </div>
     </div>
 
 
     <div id="dashboard-view" class="hidden">
-
         <nav class="navbar">
             <div class="nav-brand">
                 <img src="{{ url_for('static', filename='images/AWARE-icon.jpg') }}" alt="Logo" class="navbar-logo">

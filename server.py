@@ -7,8 +7,8 @@ from datetime import datetime, date
 import math
 
 # FOR LOCAL ONLY
-from dotenv import load_dotenv
-load_dotenv()
+# from dotenv import load_dotenv
+# load_dotenv()
 
 app = Flask(__name__)
 CORS(app)

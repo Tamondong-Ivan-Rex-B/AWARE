@@ -7,8 +7,8 @@ from datetime import datetime, date
 import math
 
 # FOR LOCAL ONLY
-# from dotenv import load_dotenv
-# load_dotenv()
+from dotenv import load_dotenv
+load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
@@ -129,6 +129,53 @@ def get_topics():
         return jsonify(cursor.fetchall()), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+    finally:
+        db.close()
+        
+# --- Dashboard Data Route ---
+@app.route("/api/get_dashboard_data", methods=["GET"])
+def get_dashboard_data():
+    prof_id = request.args.get('prof_id') 
+    db = get_db_connection()
+    cursor = db.cursor(dictionary=True)
+    try:
+        where_clause = "WHERE cs.Professor_ID = %s" if prof_id else ""
+        params = (prof_id,) if prof_id else ()
+
+        cursor.execute(f"""
+            SELECT AVG(e.Pacing_Score) AS avg_pacing, AVG(e.Comprehension_Score) AS avg_comp
+            FROM evaluation e JOIN class_session cs ON e.Session_ID = cs.Session_ID {where_clause}
+        """, params)
+        averages = cursor.fetchone()
+
+        cursor.execute(f"""
+            SELECT cs.Course_Code, cs.Topic, e.Clarity_Score, e.Pacing_Score, e.Comprehension_Score,
+                e.Engagement_Score, e.Study_Hours, e.Additional_Comments AS Comments, e.Submission_Date,
+                CONCAT(p.First_Name, ' ', p.Last_Name) AS Professor_Name,
+                CONCAT(s.First_Name, ' ', s.Last_Name) AS Student_Name
+            FROM evaluation e
+            JOIN class_session cs ON e.Session_ID = cs.Session_ID
+            JOIN course c ON cs.Course_Code = c.Course_Code
+            JOIN professor p ON cs.Professor_ID = p.Professor_ID 
+            JOIN student s ON e.Student_ID = s.Student_ID
+            {where_clause} ORDER BY e.Evaluation_ID DESC
+        """, params)
+        evaluations = cursor.fetchall()
+
+        for ev in evaluations:
+            sub_date = ev.get("Submission_Date")
+            if sub_date:
+                week_info = calculate_week(sub_date)
+                ev["Week_Status"] = week_info["status"]
+                ev["Week_Number"] = week_info["week_number"]
+                ev["Submission_Date"] = sub_date.strftime("%Y-%m-%d %H:%M") 
+            else:
+                ev["Week_Status"] = "Old Data"
+                ev["Week_Number"] = 0
+
+        return jsonify({"averages": averages, "evaluations": evaluations}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
     finally:
         db.close()
 
@@ -693,9 +740,19 @@ def api_modify_enrollment(enroll_id):
             return jsonify({"status": "success", "message": "Enrollment deleted!"}), 200
         elif request.method == 'PUT':
             data = request.json
+            
             cursor.execute("""
-                UPDATE enrollment SET Academic_Year=%s, Semester=%s, Current_Grade=%s WHERE Enrollment_ID=%s
-            """, (data.get('Academic_Year'), data.get('Semester'), data.get('Current_Grade') or None, enroll_id))
+                UPDATE enrollment 
+                SET Student_ID=%s, Course_Code=%s, Academic_Year=%s, Semester=%s, Current_Grade=%s 
+                WHERE Enrollment_ID=%s
+            """, (
+                data.get('Student_ID'), 
+                data.get('Course_Code'), 
+                data.get('Academic_Year'), 
+                data.get('Semester'), 
+                data.get('Current_Grade') or None, 
+                enroll_id
+            ))
             db.commit()
             return jsonify({"status": "success", "message": "Enrollment updated!"}), 200
     except Exception as e:

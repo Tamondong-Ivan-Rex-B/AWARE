@@ -62,7 +62,8 @@ class ProfessorDialog(QDialog):
         layout.addWidget(self.btns)
 
     def get_data(self):
-        payload = {"First_Name": self.first_name.text().strip(), "Last_Name": self.last_name.text().strip(), "Username": self.username.text().strip(), "Department": self.department.text().strip()}
+        payload = {"First_Name": self.first_name.text().strip(), "Last_Name": self.last_name.text().strip(),
+                "Username": self.username.text().strip(), "Department": self.department.text().strip()}
         if self.password.text().strip(): payload["Password"] = self.password.text().strip()
         return payload
 
@@ -85,28 +86,35 @@ class GuardianDialog(QDialog):
         layout.addWidget(self.btns)
 
     def get_data(self):
-        return {"First_Name": self.first_name.text().strip(), "Last_Name": self.last_name.text().strip(), "Email": self.email.text().strip(), "Contact_Number": self.phone.text().strip()}
+        return {"First_Name": self.first_name.text().strip(), "Last_Name": self.last_name.text().strip(), "Email": self.email.text().strip(), 
+                "Contact_Number": self.phone.text().strip()}
 
 class StudentDialog(QDialog):
     def __init__(self, parent=None, data=None):
         super().__init__(parent)
+        data = data or {}
+        
         self.setWindowTitle("Edit Student" if data else "Add Student")
         layout = QFormLayout(self)
-        self.first_name = QLineEdit(data.get("First_Name", "") if data else "")
-        self.last_name = QLineEdit(data.get("Last_Name", "") if data else "")
-        self.username = QLineEdit(data.get("Username", "") if data else "")
+        self.first_name = QLineEdit(data.get("First_Name", ""))
+        self.last_name = QLineEdit(data.get("Last_Name", ""))
+        self.username = QLineEdit(data.get("Username", ""))
         self.password = QLineEdit()
         self.password.setEchoMode(QLineEdit.EchoMode.Password)
         self.password.setPlaceholderText("Leave blank to keep current" if data else "Required")
+        
         self.guardian_combo = QComboBox()
         self.guardian_combo.addItem("None", None)
         try:
             resp = requests.get(f"{BASE_URL}/api/admin/guardians").json().get("data", [])
             for g in resp: self.guardian_combo.addItem(f"{g['First_Name']} {g['Last_Name']}", g['Guardian_ID'])
         except: pass
-        if data and data.get("Guardian_ID") != "None":
-            idx = self.guardian_combo.findData(int(data.get("Guardian_ID")))
+        
+        g_id = str(data.get("Guardian_ID", ""))
+        if g_id not in ["None", "-", ""]:
+            idx = self.guardian_combo.findData(int(g_id))
             if idx >= 0: self.guardian_combo.setCurrentIndex(idx)
+            
         layout.addRow("First Name:", self.first_name)
         layout.addRow("Last Name:", self.last_name)
         layout.addRow("Username:", self.username)
@@ -118,7 +126,8 @@ class StudentDialog(QDialog):
         layout.addWidget(self.btns)
 
     def get_data(self):
-        payload = {"First_Name": self.first_name.text().strip(), "Last_Name": self.last_name.text().strip(), "Username": self.username.text().strip(), "Guardian_ID": self.guardian_combo.currentData()}
+        payload = {"First_Name": self.first_name.text().strip(), "Last_Name": self.last_name.text().strip(), "Username"
+                   : self.username.text().strip(), "Guardian_ID": self.guardian_combo.currentData()}
         if self.password.text().strip(): payload["Password"] = self.password.text().strip()
         return payload
 
@@ -170,33 +179,42 @@ class ScheduleDialog(QDialog):
         layout.addWidget(self.btns)
 
     def get_data(self):
-        return {"Course_Code": self.course_combo.currentData(), "Room_Name": self.room_input.text().strip(), "Schedule_Day": self.day_combo.currentText(), "Start_Time": self.start_time.text().strip(), "End_Time": self.end_time.text().strip()}
+        return {"Course_Code": self.course_combo.currentData(), "Room_Name": self.room_input.text().strip(), "Schedule_Day"
+                : self.day_combo.currentText(), "Start_Time": self.start_time.text().strip(), "End_Time": self.end_time.text().strip()}
 
 class EnrollmentDialog(QDialog):
     def __init__(self, parent=None, data=None):
         super().__init__(parent)
+        data = data or {}
+        
         self.setWindowTitle("Edit Enrollment" if data else "Add Enrollment")
         layout = QFormLayout(self)
         self.student_combo = QComboBox()
         self.course_combo = QComboBox()
-        self.acad_year = QLineEdit(data.get("Academic_Year", "2025-2026") if data else "2025-2026")
+        self.acad_year = QLineEdit(data.get("Academic_Year", "2025-2026") if data.get("Academic_Year") else "2025-2026")
         self.semester = QComboBox()
-        self.semester.addItems(["1st", "2nd", "Summer"])
-        if data and data.get("Semester"): self.semester.setCurrentText(str(data.get("Semester")))
-        self.grade = QLineEdit(data.get("Current_Grade", "1.00") if data else "")
+        self.semester.addItem("1st Semester", 1)
+        self.semester.addItem("2nd Semester", 2)
+        self.semester.addItem("Summer", 3)
+        if data.get("Semester"): 
+            idx = self.semester.findData(int(data.get("Semester")))
+            if idx >= 0: self.semester.setCurrentIndex(idx)
+        self.grade = QLineEdit(data.get("Current_Grade", "1.00") if data.get("Current_Grade") else "")
         try:
             students = requests.get(f"{BASE_URL}/api/admin/students").json().get("data", [])
             for s in students: self.student_combo.addItem(f"{s['First_Name']} {s['Last_Name']}", s["Student_ID"])
             courses = requests.get(f"{BASE_URL}/api/admin/courses").json().get("data", [])
             for c in courses: self.course_combo.addItem(c["Course_Code"], c["Course_Code"])
         except: pass
-        if data:
+        if data.get("Student_ID"):
             for i in range(self.student_combo.count()):
                 if str(self.student_combo.itemData(i)) == str(data.get("Student_ID")):
                     self.student_combo.setCurrentIndex(i)
                     break
+        if data.get("Course_Code"):
             c_idx = self.course_combo.findData(data.get("Course_Code"))
             if c_idx >= 0: self.course_combo.setCurrentIndex(c_idx)
+            
         layout.addRow("Student:", self.student_combo)
         layout.addRow("Course:", self.course_combo)
         layout.addRow("Academic Year:", self.acad_year)
@@ -208,7 +226,13 @@ class EnrollmentDialog(QDialog):
         layout.addWidget(self.btns)
 
     def get_data(self):
-        return {"Student_ID": self.student_combo.currentData(), "Course_Code": self.course_combo.currentData(), "Academic_Year": self.acad_year.text().strip(), "Semester": self.semester.currentText(), "Current_Grade": self.grade.text().strip()}
+        return {
+            "Student_ID": self.student_combo.currentData(), 
+            "Course_Code": self.course_combo.currentData(), 
+            "Academic_Year": self.acad_year.text().strip(), 
+            "Semester": self.semester.currentData(),
+            "Current_Grade": self.grade.text().strip()
+        }
 
 class SessionDialog(QDialog):
     def __init__(self, parent=None, data=None):
@@ -244,7 +268,8 @@ class SessionDialog(QDialog):
         layout.addWidget(self.btns)
 
     def get_data(self):
-        return {"Course_Code": self.course_combo.currentData(), "Professor_ID": self.prof_combo.currentData(), "Session_Date": self.date_input.text().strip(), "Topic": self.topic_input.text().strip()}
+        return {"Course_Code": self.course_combo.currentData(), "Professor_ID": self.prof_combo.currentData(), "Session_Date"
+                : self.date_input.text().strip(), "Topic": self.topic_input.text().strip()}
 
 # ==========================================
 # 3. MAIN WINDOW
@@ -368,10 +393,13 @@ class ManageDataWindow(QWidget):
         elif idx == 1: self.populate_exact(self.guardians_table, data, ["Guardian_ID", "First_Name", "Last_Name", "Email", "Contact_Number"])
         elif idx == 2: self.populate_exact(self.students_table, data, ["Student_ID", "First_Name", "Last_Name", "Guardian_ID"])
         elif idx == 3: self.populate_exact(self.courses_table, data, ["Course_Code", "Course_Title"])
-        elif idx == 4: self.populate_exact(self.schedules_table, data, ["Schedule_ID", "Course_Code", "Room_Name", "Schedule_Day", "Start_Time", "End_Time"])
-        elif idx == 5: self.populate_exact(self.enrollments_table, data, ["Enrollment_ID", "Student_ID", "Course_Code", "Academic_Year", "Semester", "Current_Grade"])
+        elif idx == 4: self.populate_exact(self.schedules_table, data, ["Schedule_ID", "Course_Code", "Room_Name", "Schedule_Day", "Start_Time", 
+                                                                        "End_Time"])
+        elif idx == 5: self.populate_exact(self.enrollments_table, data, ["Enrollment_ID", "Student_ID", "Course_Code", "Academic_Year", "Semester", 
+                                                                        "Current_Grade"])
         elif idx == 6: self.populate_exact(self.class_sessions_table, data, ["Session_ID", "Course_Code", "Topic", "Session_Date", "Professor_ID"])
-        elif idx == 7: self.populate_exact(self.evaluations_table, data, ["Evaluation_ID", "Course_Code", "Clarity_Score", "Pacing_Score", "Comprehension_Score", "Engagement_Score", "Submission_Date", "Study_Hours", "Additional_Comments"])
+        elif idx == 7: self.populate_exact(self.evaluations_table, data, ["Evaluation_ID", "Course_Code", "Clarity_Score", "Pacing_Score", 
+                                                "Comprehension_Score", "Engagement_Score", "Submission_Date", "Study_Hours", "Additional_Comments"])
 
     def populate_exact(self, table, data, exact_keys):
         table.setRowCount(len(data))
@@ -389,13 +417,24 @@ class ManageDataWindow(QWidget):
     def api_call(self, method, endpoint, payload=None, tab_idx=0):
         try:
             url = f"{BASE_URL}{endpoint}"
-            if method == "POST": requests.post(url, json=payload).raise_for_status()
-            elif method == "PUT": requests.put(url, json=payload).raise_for_status()
-            elif method == "DELETE": requests.delete(url).raise_for_status()
+            resp = None
+            if method == "POST": resp = requests.post(url, json=payload)
+            elif method == "PUT": resp = requests.put(url, json=payload)
+            elif method == "DELETE": resp = requests.delete(url)
+            if resp is not None:
+                resp.raise_for_status()
+                
             QMessageBox.information(self, "Success", "Action completed!")
             self.refresh_tab(tab_idx)
+            
+        except requests.exceptions.HTTPError as e:
+            try:
+                error_msg = resp.json().get("message", str(e))
+            except:
+                error_msg = str(e)
+            QMessageBox.critical(self, "Server Error", f"Operation failed:\n{error_msg}")
         except Exception as e:
-            QMessageBox.critical(self, "API Error", str(e))
+            QMessageBox.critical(self, "Network Error", str(e))
 
     def handle_prof_crud(self, action):
         t = self.professors_table
@@ -410,7 +449,9 @@ class ManageDataWindow(QWidget):
             if dlg.exec() == QDialog.DialogCode.Accepted: self.api_call("PUT", f"/api/admin/professors/{t.item(r,0).text()}", dlg.get_data(), 0)
         elif action == "DELETE":
             r = self.get_selected(t)
-            if r is not None and QMessageBox.question(self, "Confirm", "Delete?") == QMessageBox.StandardButton.Yes: self.api_call("DELETE", f"/api/admin/professors/{t.item(r,0).text()}", tab_idx=0)
+            if r is not None and QMessageBox.question(self, "Confirm", "Are you sure you want to delete this record?"
+                                                      ) == QMessageBox.StandardButton.Yes: 
+                self.api_call("DELETE", f"/api/admin/professors/{t.item(r,0).text()}", tab_idx=0)
 
     def handle_guardian_crud(self, action):
         t = self.guardians_table
@@ -419,13 +460,16 @@ class ManageDataWindow(QWidget):
             if dlg.exec() == QDialog.DialogCode.Accepted: self.api_call("POST", "/api/admin/guardians", dlg.get_data(), 1)
         elif action == "EDIT":
             r = self.get_selected(t)
-            if r is None: return
-            data = {"First_Name": t.item(r,1).text(), "Last_Name": t.item(r,2).text(), "Email": t.item(r,3).text(), "Contact_Number": t.item(r,4).text()}
+            if r is None: return QMessageBox.warning(self, "Error", "Select a row!")
+            data = {"First_Name": t.item(r,1).text(), "Last_Name": t.item(r,2).text(), "Email": t.item(r,3).text(), 
+                    "Contact_Number": t.item(r,4).text()}
             dlg = GuardianDialog(self, data)
             if dlg.exec() == QDialog.DialogCode.Accepted: self.api_call("PUT", f"/api/admin/guardians/{t.item(r,0).text()}", dlg.get_data(), 1)
         elif action == "DELETE":
             r = self.get_selected(t)
-            if r is not None: self.api_call("DELETE", f"/api/admin/guardians/{t.item(r,0).text()}", tab_idx=1)
+            if r is not None and QMessageBox.question(self, "Confirm", "Are you sure you want to delete this record?"
+                                                      ) == QMessageBox.StandardButton.Yes: 
+                self.api_call("DELETE", f"/api/admin/guardians/{t.item(r,0).text()}", tab_idx=1)
 
     def handle_student_crud(self, action):
         t = self.students_table
@@ -434,13 +478,15 @@ class ManageDataWindow(QWidget):
             if dlg.exec() == QDialog.DialogCode.Accepted: self.api_call("POST", "/api/admin/students", dlg.get_data(), 2)
         elif action == "EDIT":
             r = self.get_selected(t)
-            if r is None: return
+            if r is None: return QMessageBox.warning(self, "Error", "Select a row!")
             data = {"First_Name": t.item(r,1).text(), "Last_Name": t.item(r,2).text(), "Guardian_ID": t.item(r,3).text()}
             dlg = StudentDialog(self, data)
             if dlg.exec() == QDialog.DialogCode.Accepted: self.api_call("PUT", f"/api/admin/students/{t.item(r,0).text()}", dlg.get_data(), 2)
         elif action == "DELETE":
             r = self.get_selected(t)
-            if r is not None: self.api_call("DELETE", f"/api/admin/students/{t.item(r,0).text()}", tab_idx=2)
+            if r is not None and QMessageBox.question(self, "Confirm", "Are you sure you want to delete this record?"
+                                                      ) == QMessageBox.StandardButton.Yes: 
+                self.api_call("DELETE", f"/api/admin/students/{t.item(r,0).text()}", tab_idx=2)
 
     def handle_course_crud(self, action):
         t = self.courses_table
@@ -449,13 +495,15 @@ class ManageDataWindow(QWidget):
             if dlg.exec() == QDialog.DialogCode.Accepted: self.api_call("POST", "/api/admin/courses", dlg.get_data(), 3)
         elif action == "EDIT":
             r = self.get_selected(t)
-            if r is None: return
+            if r is None: return QMessageBox.warning(self, "Error", "Select a row!")
             data = {"Course_Code": t.item(r,0).text(), "Course_Title": t.item(r,1).text()}
             dlg = CourseDialog(self, data)
             if dlg.exec() == QDialog.DialogCode.Accepted: self.api_call("PUT", f"/api/admin/courses/{t.item(r,0).text()}", dlg.get_data(), 3)
         elif action == "DELETE":
             r = self.get_selected(t)
-            if r is not None: self.api_call("DELETE", f"/api/admin/courses/{t.item(r,0).text()}", tab_idx=3)
+            if r is not None and QMessageBox.question(self, "Confirm", "Are you sure you want to delete this record?"
+                                                      ) == QMessageBox.StandardButton.Yes: 
+                self.api_call("DELETE", f"/api/admin/courses/{t.item(r,0).text()}", tab_idx=3)
 
     def handle_schedule_crud(self, action):
         t = self.schedules_table
@@ -464,28 +512,38 @@ class ManageDataWindow(QWidget):
             if dlg.exec() == QDialog.DialogCode.Accepted: self.api_call("POST", "/api/admin/schedules", dlg.get_data(), 4)
         elif action == "EDIT":
             r = self.get_selected(t)
-            if r is None: return
-            data = {"Course_Code": t.item(r,1).text(), "Room_Name": t.item(r,2).text(), "Schedule_Day": t.item(r,3).text(), "Start_Time": t.item(r,4).text(), "End_Time": t.item(r,5).text()}
+            if r is None: return QMessageBox.warning(self, "Error", "Select a row!")
+            data = {"Course_Code": t.item(r,1).text(), "Room_Name": t.item(r,2).text(), "Schedule_Day": t.item(r,3).text(), 
+                    "Start_Time": t.item(r,4).text(), "End_Time": t.item(r,5).text()}
             dlg = ScheduleDialog(self, data)
             if dlg.exec() == QDialog.DialogCode.Accepted: self.api_call("PUT", f"/api/admin/schedules/{t.item(r,0).text()}", dlg.get_data(), 4)
         elif action == "DELETE":
             r = self.get_selected(t)
-            if r is not None: self.api_call("DELETE", f"/api/admin/schedules/{t.item(r,0).text()}", tab_idx=4)
+            if r is not None and QMessageBox.question(self, "Confirm", "Are you sure you want to delete this record?"
+                                                      ) == QMessageBox.StandardButton.Yes: 
+                self.api_call("DELETE", f"/api/admin/schedules/{t.item(r,0).text()}", tab_idx=4)
 
     def handle_enrollment_crud(self, action):
         t = self.enrollments_table
         if action == "ADD":
             dlg = EnrollmentDialog(self)
-            if dlg.exec() == QDialog.DialogCode.Accepted: self.api_call("POST", "/api/admin/enrollments", dlg.get_data(), 5)
+            if dlg.exec() == QDialog.DialogCode.Accepted: 
+                data = dlg.get_data()
+                if not data.get("Student_ID") or not data.get("Course_Code"):
+                    return QMessageBox.warning(self, "Missing Data", "You must select both a valid Student and a Course to create an enrollment.")
+                self.api_call("POST", "/api/admin/enrollments", data, 5)
         elif action == "EDIT":
             r = self.get_selected(t)
-            if r is None: return
-            data = {"Student_ID": t.item(r,1).text(), "Course_Code": t.item(r,2).text(), "Academic_Year": t.item(r,3).text(), "Semester": t.item(r,4).text(), "Current_Grade": t.item(r,5).text()}
+            if r is None: return QMessageBox.warning(self, "Error", "Select a row!")
+            data = {"Student_ID": t.item(r,1).text(), "Course_Code": t.item(r,2).text(), "Academic_Year": t.item(r,3).text(), 
+                    "Semester": t.item(r,4).text(), "Current_Grade": t.item(r,5).text()}
             dlg = EnrollmentDialog(self, data)
             if dlg.exec() == QDialog.DialogCode.Accepted: self.api_call("PUT", f"/api/admin/enrollments/{t.item(r,0).text()}", dlg.get_data(), 5)
         elif action == "DELETE":
             r = self.get_selected(t)
-            if r is not None: self.api_call("DELETE", f"/api/admin/enrollments/{t.item(r,0).text()}", tab_idx=5)
+            if r is not None and QMessageBox.question(self, "Confirm", "Are you sure you want to delete this record?"
+                                                      ) == QMessageBox.StandardButton.Yes: 
+                self.api_call("DELETE", f"/api/admin/enrollments/{t.item(r,0).text()}", tab_idx=5)
 
     def handle_session_crud(self, action):
         t = self.class_sessions_table
@@ -494,16 +552,21 @@ class ManageDataWindow(QWidget):
             if dlg.exec() == QDialog.DialogCode.Accepted: self.api_call("POST", "/api/admin/sessions", dlg.get_data(), 6)
         elif action == "EDIT":
             r = self.get_selected(t)
-            if r is None: return
-            data = {"Course_Code": t.item(r,1).text(), "Topic": t.item(r,2).text(), "Session_Date": t.item(r,3).text(), "Professor_ID": t.item(r,4).text()}
+            if r is None: return QMessageBox.warning(self, "Error", "Select a row!")
+            data = {"Course_Code": t.item(r,1).text(), "Topic": t.item(r,2).text(), "Session_Date": t.item(r,3).text(), 
+                    "Professor_ID": t.item(r,4).text()}
             dlg = SessionDialog(self, data)
             if dlg.exec() == QDialog.DialogCode.Accepted: self.api_call("PUT", f"/api/admin/sessions/{t.item(r,0).text()}", dlg.get_data(), 6)
         elif action == "DELETE":
             r = self.get_selected(t)
-            if r is not None: self.api_call("DELETE", f"/api/admin/sessions/{t.item(r,0).text()}", tab_idx=6)
+            if r is not None and QMessageBox.question(self, "Confirm", "Are you sure you want to delete this record?"
+                                                      ) == QMessageBox.StandardButton.Yes: 
+                self.api_call("DELETE", f"/api/admin/sessions/{t.item(r,0).text()}", tab_idx=6)
 
     def handle_eval_crud(self, action):
         t = self.evaluations_table
         if action == "DELETE":
             r = self.get_selected(t)
-            if r is not None: self.api_call("DELETE", f"/api/admin/evaluations/{t.item(r,0).text()}", tab_idx=7)
+            if r is not None and QMessageBox.question(self, "Confirm", "Are you sure you want to delete this record?"
+                                                      ) == QMessageBox.StandardButton.Yes: 
+                self.api_call("DELETE", f"/api/admin/evaluations/{t.item(r,0).text()}", tab_idx=7)

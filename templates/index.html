@@ -82,8 +82,8 @@
         .custom-logo {
             width: 120px;
             height: 120px;
-            border-radius: 50%; /* Makes it circular */
-            border: 3px solid #1e293b; /* Navy blue border */
+            border-radius: 50%;
+            border: 3px solid #1e293b;
             object-fit: cover;
             margin-bottom: 12px;
             background-color: white;
@@ -677,10 +677,20 @@
                         lastSubmissionKey = key;
                         alert("Pulse Check Submitted Successfully!");
 
+                        // Clear text inputs
                         document.getElementById('comments').value = "";
                         document.getElementById('studyHours').value = "";
 
-                        // 🔥 ADD THIS: refresh streak + freeze + stats UI
+                        // Reset Dropdowns
+                        document.getElementById('courseSelect').value = "";
+                        document.getElementById('topicsSelect').innerHTML = '<option value="">Select a course first...</option>';
+
+                        // Reset Stars to default (3)
+                        setRating('clarity', 3);
+                        setRating('pacing', 3);
+                        setRating('comprehension', 3);
+                        setRating('engagement', 3);
+
                         loadStudentStats();
                     }
                      
@@ -734,48 +744,39 @@
 
             function loadStudentStats() {
                 if (!currentStudentId) return;
-
-                fetch(`https://aware-api.onrender.com/api/get_student_stats?student_id=${currentStudentId}`)
+                fetch(`https://aware-api.onrender.com/api/get_student_stats?student_id=${currentStudentId}&_t=${Date.now()}`, {
+                    cache: 'no-store'
+                })
                     .then(response => response.json())
                     .then(data => {
-
                         // --- basic stats ---
                         document.getElementById('statTotalSubmissions').innerText = data.total_submissions;
                         document.getElementById('heroSubmissionsDisplay').innerText = `${data.total_submissions} / 18`;
-
                         // --- helper for proper singular/plural ---
                         function pluralize(value, singular, plural) {
                             return value + " " + (value === 1 ? singular : plural);
                         }
-
-                        
-                        // SAFER DISPLAY LAYER (prevents fake "week-based or wrong unit streaks")
+                        // prevents fake "week-based or wrong unit streaks"
                         function formatDays(value) {
                             value = parseInt(value || 0);
-
                             if (value <= 0) return "0 Days";
-
                             return value === 1 ? "1 Day" : `${value} Days`;
                         }
-
                         // Current streak
                         document.getElementById('ui-current-streak').textContent =
                             formatDays(data.streak);
-
                         // Best streak
                         document.getElementById('ui-best-streak').textContent =
                             formatDays(data.best_streak);
 
                         // --- freezes ---####
                         document.getElementById('ui-freezes').textContent = data.freeze;
-
                         // --- color logic for streak ---
                         if (data.streak === 0) {
                             document.getElementById('ui-current-streak').style.color = "#888";
                         } else {
                             document.getElementById('ui-current-streak').style.color = "#ff9800";
                         }
-
                         // --- recent submissions ---
                         const recentContainer = document.getElementById('recentSubmissionsContainer');
                         recentContainer.innerHTML = '<h3 style="margin-bottom: 16px;">Recent Submissions</h3>';
@@ -826,5 +827,4 @@
 
         </script>
 </body>
-
 </html>

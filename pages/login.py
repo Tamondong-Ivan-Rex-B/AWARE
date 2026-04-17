@@ -99,7 +99,6 @@ class LoginPage(QWidget):
         self.pass_input.setEchoMode(QLineEdit.EchoMode.Password)
         self.pass_input.returnPressed.connect(self.handle_login)
 
-        # FIX: Removed negative margin that was cropping the button!
         self.show_pass_cb = QCheckBox("Show Password")
         self.show_pass_cb.setStyleSheet("color: #64748b; font-size: 12px;")
         self.show_pass_cb.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))

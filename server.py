@@ -14,7 +14,8 @@ app = Flask(__name__)
 CORS(app)
 
 # --- GLOBAL TIME MACHINE FOR TESTING ---
-GLOBAL_TEST_DATE = date(2026, 4, 15)
+GLOBAL_TEST_DATE = None
+#date(2026, 4, 15)
 
 # ==========================================
 # SEMESTER SCHEDULE CONFIGURATION
@@ -23,6 +24,7 @@ SEMESTER_START = date(2025, 12, 9)
 SEMBREAK_START = date(2025, 12, 20)
 SEMBREAK_END = date(2026, 1, 5)
 CLASSES_RESUME = date(2026, 1, 6)
+SEMESTER_END = date(2026, 5, 15)
 
 # --- Database Connection ---
 def get_db_connection():
@@ -357,8 +359,8 @@ def calculate_week(target_date):
     elif isinstance(target_date, str):
         target_date = datetime.strptime(target_date, '%Y-%m-%d %H:%M:%S').date()
 
-    if target_date < SEMESTER_START: 
-        return {"status": "Not Started", "week_number": 0}
+    if target_date < SEMESTER_START or target_date > SEMESTER_END: 
+        return {"status": "Semester Ended" if target_date > SEMESTER_END else "Not Started", "week_number": 0}
         
     if SEMBREAK_START <= target_date <= SEMBREAK_END: 
         return {"status": "Sembreak", "week_number": 0}

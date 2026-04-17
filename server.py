@@ -14,8 +14,8 @@ app = Flask(__name__)
 CORS(app)
 
 # --- GLOBAL TIME MACHINE FOR TESTING ---
-GLOBAL_TEST_DATE = None
-#date(2026, 4, 15)
+# GLOBAL_TEST_DATE = None
+GLOBAL_TEST_DATE = date(2026, 4, 22)
 
 # ==========================================
 # SEMESTER SCHEDULE CONFIGURATION
@@ -24,7 +24,7 @@ SEMESTER_START = date(2025, 12, 9)
 SEMBREAK_START = date(2025, 12, 20)
 SEMBREAK_END = date(2026, 1, 5)
 CLASSES_RESUME = date(2026, 1, 6)
-SEMESTER_END = date(2026, 5, 15)
+SEMESTER_END = date(2026, 4, 25)
 
 # --- Database Connection ---
 def get_db_connection():

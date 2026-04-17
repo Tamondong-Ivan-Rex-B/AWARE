@@ -14,8 +14,8 @@ app = Flask(__name__)
 CORS(app)
 
 # --- GLOBAL TIME MACHINE FOR TESTING ---
-# GLOBAL_TEST_DATE = None
-GLOBAL_TEST_DATE = date(2026, 4, 8)
+GLOBAL_TEST_DATE = None
+# GLOBAL_TEST_DATE = date(2026, 4, 8)
 
 # ==========================================
 # SEMESTER SCHEDULE CONFIGURATION

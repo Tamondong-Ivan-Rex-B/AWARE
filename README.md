@@ -1,8 +1,8 @@
 # 🎓 A.W.A.R.E.
 **Academic Weekly Analysis and Reporting Engine**
-*(Final Release Version)*
+*(Final Release Version v1.0)*
 
-> A centralized platform bridging the gap between quantitative academic grades, qualitative student well-being, and personal study habits. By shifting from massive, one-time semester surveys to anonymous, weekly "Pulse Checks," the system provides educators with accurate, honest, and actionable class feedback.
+> A centralized platform bridging the gap between quantitative academic grades, qualitative student well-being, and personal study habits. By shifting from massive, one-time semester surveys to anonymous, weekly "Pulse Checks," A.W.A.R.E. provides educators with accurate, honest, and actionable class feedback in real time.
 
 ---
 
@@ -17,7 +17,8 @@ For our final release, the A.W.A.R.E. infrastructure has been fully migrated fro
 
 ## ✨ Key Features
 * **Anonymous Student Pulse Checks:** Quick, weekly web-based evaluations accessible via mobile or desktop browsers.
-* **Real-Time Admin Dashboard:** Live synchronization of student feedback directly from the cloud.
+* **Standalone Desktop Dashboard:** A compiled executable (`.exe`) allows Professors and Admins to run the analytics dashboard natively on Windows without installing Python.
+* **Real-Time Synchronization:** Live synchronization of student feedback directly from the cloud.
 * **Advanced Analytics:** Visualize clarity scores and engagement trends over time using interactive graphs.
 * **Cascading Filters:** Deep dive into data by specific courses or topics without compromising student anonymity.
 * **Secure Role-Based Access:** Encrypted passwords (via Werkzeug) and separate portals for Students, Professors, and Administrators.
@@ -26,19 +27,31 @@ For our final release, the A.W.A.R.E. infrastructure has been fully migrated fro
 
 ## 🛠️ Tech Stack
 * **Frontend (Student Portal):** HTML5, CSS3, Vanilla JavaScript
-* **Desktop App (Admin & Professor Dashboard):** Python 3, PyQt6, PyQtGraph, Requests, PyInstaller *(for future standalone .exe compilation)*
+* **Desktop App (Admin & Professor Dashboard):** Python 3, PyQt6, PyQtGraph, Requests
+* **Compilation:** PyInstaller *(Used to bundle the desktop app into a standalone .exe)*
 * **Backend Server:** Flask, Flask-CORS, Render.com
 * **Database Management & Security:** MySQL, Aiven.io, mysql-connector-python, DBeaver, Werkzeug
 
 ---
 
-## 📦 Installation & Local Development Setup
+## 🚀 How to Use the System
 
-Because the database and API are currently hosted in the cloud, you no longer need to set up a local database to use the software. However, to run the source code on your machine:
+### For End-Users (No Installation Required)
+Because the database and API are currently hosted in the cloud, standard users do not need to configure any local environments.
+
+1. **For Students:** Open https://aware-api.onrender.com/ on any mobile or desktop browser to log in and submit a Pulse Check.
+2. **For Professors & Admins (The .exe File):**
+   * Navigate to the `dist` folder in this repository.
+   * Download and double-click `A.W.A.R.E..exe`.
+   * The desktop application will launch instantly and securely fetch real-time analytics from the cloud database.
+
+---
+
+## 💻 Developer Setup & Installation
+If you wish to modify the source code or run the Python scripts locally, follow these steps:
 
 ### 1. Prerequisites
-Ensure you have Python 3.x installed on your machine.
-Clone the repository and navigate to the project folder:
+Ensure you have Python 3.x installed on your machine. Clone the repository and navigate to the project folder:
 
     git clone https://github.com/Tamondong-Ivan-Rex-B/AWARE-System.git
     cd AWARE-System
@@ -49,7 +62,7 @@ Install all required Python libraries using pip:
     pip install flask flask-cors mysql-connector-python werkzeug PyQt6 pyqtgraph requests pyinstaller python-dotenv
 
 ### 3. Environment Variables
-Create a .env file in the root directory to securely link the cloud database (ask the repository owner for the actual credentials):
+Create a `.env` file in the root directory to securely link the cloud database (contact the repository owner for the actual credentials):
 
     DB_HOST=your_aiven_host_url
     DB_PORT=your_port
@@ -57,39 +70,64 @@ Create a .env file in the root directory to securely link the cloud database (as
     DB_PASSWORD=your_db_password
     DB_NAME=aware_db
 
----
+### 4. Running the Code
+* **Option A (Testing the Dashboard):** Run the Python script directly to test UI changes.
+  
+      python main.py
 
-## 🚀 How to Run the System
+* **Option B (Local Server Testing):** If you are testing changes to the backend API, start the local server first, then launch the dashboard.
+  
+      python server.py
+      python main.py
 
-### Option A: End-User Experience (Cloud)
-1. **Students:** Simply open the hosted web address on any mobile or desktop browser to access `index.html` and submit a Pulse Check.
-2. **Professors/Admins:** Double-click the compiled `AWARE_Dashboard.exe` or run the desktop script `main.py` to fetch real-time data:
+### 5. Building the .exe (For Contributors)
+If you make updates to the dashboard code and need to generate a new `.exe` file for users, run:
 
-    python main.py
+    pyinstaller --onefile --windowed main.py
 
-### Option B: Developer Mode (Local Server Testing)
-If you are testing changes to the backend API:
-1. Start the Flask API locally: `python server.py`
-2. Launch the desktop dashboard in a new terminal: `python main.py`
+*The compiled executable will be generated inside the `dist/` folder.*
 
 ---
 
 ## 📸 Screenshots
 
-### Student Portal (Web)
-| Login | Dashboard Features | Evaluation Phase | Data Submission |
+### Student Portal (Website)
+| Login | Dashboard | Data Submission | Duplicate Submission Blocking |
 |:---:|:---:|:---:|:---:|
-| ![Login](static/images/ss%20(19).png) | ![Features](static/images/ss%20(20).png) | ![Evaluating](static/images/ss%20(22).png) | ![Success](static/images/ss%20(23).png) |
+| ![Login](static/images/ss%20(25).png) | ![Dashboard](static/images/ss%20(26).png) | ![Data Submission](static/images/ss%20(27).png) | ![Duplicate Submission Blocking](static/images/ss%20(28).png) |
 
-### Professor & Admin Dashboards (Desktop App)
-| Professor Login | Admin Login | Professor Dashboard | Admin Dashboard |
+### Professor & Admin Dashboards (Desktop Application)
+| Professor and Admin Login | Admin Dashboard | Reports (.pdf) |
+|:---:|:---:|:---:|
+| ![Professor and Admin Login](static/images/ss%20(1).png) | ![Admin Dashboard](static/images/ss%20(2).png) | ![Reports (.pdf)](static/images/ss%20(3).png) |
+
+### Admin CRUD (Desktop Application)
+| Professors | Guardians | Students | Courses |
 |:---:|:---:|:---:|:---:|
-| ![Prof Login](static/images/ss%20(3).png) | ![Admin Login](static/images/ss%20(4).png) | ![Prof Dash](static/images/ss%20(12).png) | ![Admin Dash](static/images/ss%20(5).png) |
+| ![Professors](static/images/ss%20(4).png) | ![Guardians](static/images/ss%20(8).png) | ![Students](static/images/ss%20(9).png) | ![Courses](static/images/ss%20(12).png) |
+
+| Schedules | Enrollments | Sessions | Evaluations |
+|:---:|:---:|:---:|:---:|
+| ![Schedules](static/images/ss%20(13).png) | ![Enrollments](static/images/ss%20(14).png) | ![Sessions](static/images/ss%20(15).png) | ![Evaluations](static/images/ss%20(16).png) |
+
+### Admin CRUD Samples and Features (Desktop Application)
+| Create | Update (W/ Primary Key) | Update (W/ Foreign Key) | Filtering |
+|:---:|:---:|:---:|:---:|
+| ![Create](static/images/ss%20(5).png) | ![Update](static/images/ss%20(6).png) | ![Filtering](static/images/ss%20(10).png) | ![Evaluations](static/images/ss%20(7).png) |
+
+### Data Analytics (Desktop Application)
+| Outcomes | Burnout Detector | Syllabus Bottleneck |
+|:---:|:---:|:---:|
+| ![Outcomes](static/images/ss%20(18).png) | ![Burnout Detector](static/images/ss%20(20).png) | ![Syllabus Bottleneck](static/images/ss%20(21).png) |
+
+| Pacing Sweet Spot | Engagement | Clarity |
+|:---:|:---:|:---:|
+| ![Pacing Sweet Spot](static/images/ss%20(22).png) | ![Engagement](static/images/ss%20(23).png) | ![Clarity](static/images/ss%20(24).png) |
 
 ### Advanced Analytics & Data Management
-| Data Filtering | Visual Analytics | Cloud Database (Aiven/DBeaver) |
+| ERD and Database Manager (DBeaver) | Hosting Platform (Render.com) | Cloud Database (Aiven.io) |
 |:---:|:---:|:---:|
-| ![Filtering](static/images/ss%20(13).png) | ![Analytics](static/images/ss%20(16).png) | ![Database](static/images/ss%20(24).png) |
+| ![ERD and Database Manager (DBeaver)](static/images/ss%20(31).png) | ![Hosting Platform (Render.com)](static/images/ss%20(30).png) | ![Cloud Database (Aiven.io)](static/images/ss%20(29).png) |
 
 ---
 
@@ -98,4 +136,4 @@ If you are testing changes to the backend API:
 * **Gestiada** - Visualization and Data Analysis
 * **Interno** - Security and UI/UX
 * **Monreal** - Advanced Data Filtering and Analytics
-* **Tamondong** - Environment Setup & Documentation
+* **Tamondong** - Lead Developer, Environment Setup, & Documentation

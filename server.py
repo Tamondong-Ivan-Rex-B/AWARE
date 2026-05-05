@@ -2,6 +2,7 @@ import os
 from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 import mysql.connector
+from mysql.connector import pooling
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, date
 import math
@@ -13,6 +14,29 @@ import math
 app = Flask(__name__)
 CORS(app)
 
+# Configuration dictionary to be used for the pool
+db_config = {
+    "host": os.getenv('DB_HOST'),
+    "port": int(os.getenv('DB_PORT', 3306)),
+    "user": os.getenv('DB_USER'),
+    "password": os.getenv('DB_PASSWORD'),
+    "database": os.getenv('DB_NAME'),
+    "ssl_ca": "ca.pem"
+}
+
+# Initialize pool
+try:
+    connection_pool = pooling.MySQLConnectionPool(
+        pool_name="aware_pool",
+        pool_size=10,
+        pool_reset_session=True,
+        **db_config
+    )
+    print("Database connection pool initialized.")
+except Exception as e:
+    print(f"Error initializing connection pool: {e}")
+    connection_pool = None
+
 # --- GLOBAL TIME MACHINE FOR TESTING ---
 GLOBAL_TEST_DATE = None
 # GLOBAL_TEST_DATE = date(2026, 4, 8)
@@ -22,20 +46,16 @@ GLOBAL_TEST_DATE = None
 # ==========================================
 SEMESTER_START = date(2025, 12, 9)
 SEMBREAK_START = date(2025, 12, 20)
+SEMBREAK_END = date(2025, 12, 20)
 SEMBREAK_END = date(2026, 1, 5)
 CLASSES_RESUME = date(2026, 1, 6)
 SEMESTER_END = date(2026, 4, 25)
 
 # --- Database Connection ---
 def get_db_connection():
-    return mysql.connector.connect(
-        host=os.getenv('DB_HOST'),
-        port=os.getenv('DB_PORT'),
-        user=os.getenv('DB_USER'),
-        password=os.getenv('DB_PASSWORD'),
-        database=os.getenv('DB_NAME'),
-        ssl_ca="ca.pem"
-    )
+    if connection_pool:
+        return connection_pool.get_connection()
+    return mysql.connector.connect(**db_config)
 
 # --- Login Route ---
 @app.route("/login", methods=["POST"])
@@ -48,13 +68,10 @@ def login():
     if not username or not password:
         return jsonify({"status": "error", "message": "Username and password are required."}), 400
 
+    db = None
     try:
         db = get_db_connection()
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-    cursor = db.cursor(dictionary=True)
-    try:
+        cursor = db.cursor(dictionary=True)
         if role == "admin":
             cursor.execute("SELECT * FROM admin WHERE Username = %s", (username,))
             user = cursor.fetchone()
@@ -106,41 +123,47 @@ def login():
         print(f"Login Error: {e}")
         return jsonify({"status": "error", "message": "An error occurred during login."}), 500
     finally:
-        db.close()
+        if db:
+            db.close()
 
 # --- Dropdown Routes for Student Dashboard ---
 @app.route("/api/get_courses", methods=["GET"])
 def get_courses():
-    db = get_db_connection()
-    cursor = db.cursor(dictionary=True)
+    db = None
     try:
+        db = get_db_connection()
+        cursor = db.cursor(dictionary=True)
         cursor.execute("SELECT Course_Code, Course_Title FROM course")
         return jsonify(cursor.fetchall()), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     finally:
-        db.close()
+        if db:
+            db.close()
 
 @app.route("/api/get_topics", methods=["GET"])
 def get_topics():
     course_code = request.args.get('course')
-    db = get_db_connection()
-    cursor = db.cursor(dictionary=True)
+    db = None
     try:
+        db = get_db_connection()
+        cursor = db.cursor(dictionary=True)
         cursor.execute("SELECT Session_ID, Topic FROM class_session WHERE Course_Code = %s", (course_code,))
         return jsonify(cursor.fetchall()), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     finally:
-        db.close()
+        if db:
+            db.close()
         
 # --- Dashboard Data Route ---
 @app.route("/api/get_dashboard_data", methods=["GET"])
 def get_dashboard_data():
     prof_id = request.args.get('prof_id') 
-    db = get_db_connection()
-    cursor = db.cursor(dictionary=True)
+    db = None
     try:
+        db = get_db_connection()
+        cursor = db.cursor(dictionary=True)
         where_clause = "WHERE cs.Professor_ID = %s" if prof_id else ""
         params = (prof_id,) if prof_id else ()
 
@@ -179,11 +202,13 @@ def get_dashboard_data():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
     finally:
-        db.close()
+        if db:
+            db.close()
 
 # --- Submit Evaluation Route ---
 @app.route("/submit_evaluation", methods=["POST"])
 def submit_evaluation():
+    db = None
     try:
         db = get_db_connection()
         data = request.json
@@ -324,9 +349,10 @@ def submit_evaluation():
 @app.route("/api/get_student_stats", methods=["GET"])
 def get_student_stats():
     student_id = request.args.get('student_id')
-    db = get_db_connection()
-    cursor = db.cursor(dictionary=True)
+    db = None
     try:
+        db = get_db_connection()
+        cursor = db.cursor(dictionary=True)
         cursor.execute("SELECT COUNT(*) as total FROM evaluation WHERE Student_ID = %s", (student_id,))
         total_submissions = cursor.fetchone()['total']
 
@@ -350,7 +376,8 @@ def get_student_stats():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     finally:
-        db.close()
+        if db:
+            db.close()
 
 # --- Date Calculation ---
 def calculate_week(target_date):
@@ -388,9 +415,10 @@ def get_week():
 @app.route("/api/analytics/grades_vs_evals", methods=["GET"])
 def get_grades_vs_evals():
     prof_id = request.args.get('prof_id') 
-    db = get_db_connection()
-    cursor = db.cursor(dictionary=True)
+    db = None
     try:
+        db = get_db_connection()
+        cursor = db.cursor(dictionary=True)
         where_clause = "WHERE cs.Professor_ID = %s" if prof_id else ""
         params = (prof_id,) if prof_id else ()
         cursor.execute(f"""
@@ -406,16 +434,18 @@ def get_grades_vs_evals():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
     finally:
-        db.close()
+        if db:
+            db.close()
 
 # ==========================================
 # ADMIN CRUD: PROFESSORS
 # ==========================================
 @app.route('/api/admin/professors', methods=['GET', 'POST'])
 def api_professors():
-    db = get_db_connection()
-    cursor = db.cursor(dictionary=True)
+    db = None
     try:
+        db = get_db_connection()
+        cursor = db.cursor(dictionary=True)
         if request.method == 'GET':
             cursor.execute("SELECT Professor_ID, First_Name, Last_Name, Username, Department FROM professor ORDER BY Last_Name")
             return jsonify({"status": "success", "data": cursor.fetchall()}), 200
@@ -431,13 +461,15 @@ def api_professors():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
     finally:
-        db.close()
+        if db:
+            db.close()
 
 @app.route('/api/admin/professors/<int:prof_id>', methods=['PUT', 'DELETE'])
 def api_modify_professor(prof_id):
-    db = get_db_connection()
-    cursor = db.cursor()
+    db = None
     try:
+        db = get_db_connection()
+        cursor = db.cursor()
         if request.method == 'DELETE':
             cursor.execute("DELETE FROM evaluation WHERE Session_ID IN (SELECT Session_ID FROM class_session WHERE Professor_ID = %s)", (prof_id,))
             cursor.execute("DELETE FROM class_session WHERE Professor_ID = %s", (prof_id,))
@@ -457,16 +489,18 @@ def api_modify_professor(prof_id):
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
     finally:
-        db.close()
+        if db:
+            db.close()
 
 # ==========================================
 # ADMIN CRUD: GUARDIANS
 # ==========================================
 @app.route('/api/admin/guardians', methods=['GET', 'POST'])
 def api_guardians():
-    db = get_db_connection()
-    cursor = db.cursor(dictionary=True)
+    db = None
     try:
+        db = get_db_connection()
+        cursor = db.cursor(dictionary=True)
         if request.method == 'GET':
             cursor.execute("SELECT * FROM guardian ORDER BY Last_Name")
             return jsonify({"status": "success", "data": cursor.fetchall()}), 200
@@ -479,13 +513,15 @@ def api_guardians():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
     finally:
-        db.close()
+        if db:
+            db.close()
 
 @app.route('/api/admin/guardians/<int:g_id>', methods=['PUT', 'DELETE'])
 def api_modify_guardian(g_id):
-    db = get_db_connection()
-    cursor = db.cursor()
+    db = None
     try:
+        db = get_db_connection()
+        cursor = db.cursor()
         if request.method == 'DELETE':
             cursor.execute("UPDATE student SET Guardian_ID = NULL WHERE Guardian_ID = %s", (g_id,))
             cursor.execute("DELETE FROM guardian WHERE Guardian_ID = %s", (g_id,))
@@ -500,19 +536,21 @@ def api_modify_guardian(g_id):
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
     finally:
-        db.close()
+        if db:
+            db.close()
 
 # ==========================================
 # ADMIN CRUD: STUDENTS
 # ==========================================
 @app.route('/api/admin/students', methods=['GET', 'POST'])
 def api_students():
-    db = get_db_connection()
-    cursor = db.cursor(dictionary=True)
+    db = None
     try:
+        db = get_db_connection()
+        cursor = db.cursor(dictionary=True)
         if request.method == 'GET':
             cursor.execute("""
-                SELECT s.Student_ID, s.First_Name, s.Last_Name, s.Username, s.Guardian_ID, 
+                SELECT s.Student_ID, s.First_Name, s.Last_Name, s.Program, s.Year_Level, s.Username, s.Guardian_ID, 
                        CONCAT(g.First_Name, ' ', g.Last_Name) AS Guardian_Name
                 FROM student s LEFT JOIN guardian g ON s.Guardian_ID = g.Guardian_ID ORDER BY s.Last_Name
             """)
@@ -520,20 +558,25 @@ def api_students():
         elif request.method == 'POST':
             data = request.json
             g_id = data.get('Guardian_ID') or None
-            cursor.execute("INSERT INTO student (First_Name, Last_Name, Username, Password, Guardian_ID) VALUES (%s, %s, %s, %s, %s)",
-                           (data['First_Name'], data['Last_Name'], data['Username'], generate_password_hash(data['Password']), g_id))
+            cursor.execute("""
+                INSERT INTO student (First_Name, Last_Name, Program, Year_Level, Username, Password, Guardian_ID) 
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """, (data['First_Name'], data['Last_Name'], data.get('Program'), data.get('Year_Level'), 
+                  data['Username'], generate_password_hash(data['Password']), g_id))
             db.commit()
             return jsonify({"status": "success", "message": "Student added!"}), 201
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
     finally:
-        db.close()
+        if db:
+            db.close()
 
 @app.route('/api/admin/students/<int:student_id>', methods=['PUT', 'DELETE'])
 def api_modify_student(student_id):
-    db = get_db_connection()
-    cursor = db.cursor()
+    db = None
     try:
+        db = get_db_connection()
+        cursor = db.cursor()
         if request.method == 'DELETE':
             cursor.execute("DELETE FROM evaluation WHERE Student_ID = %s", (student_id,))
             cursor.execute("DELETE FROM enrollment WHERE Student_ID = %s", (student_id,))
@@ -544,26 +587,34 @@ def api_modify_student(student_id):
             data = request.json
             g_id = data.get('Guardian_ID') or None
             if data.get('Password') and data['Password'].strip() != "":
-                cursor.execute("UPDATE student SET First_Name=%s, Last_Name=%s, Username=%s, Password=%s, Guardian_ID=%s WHERE Student_ID=%s",
-                               (data['First_Name'], data['Last_Name'], data['Username'], generate_password_hash(data['Password']), g_id, student_id))
+                cursor.execute("""
+                    UPDATE student SET First_Name=%s, Last_Name=%s, Program=%s, Year_Level=%s, Username=%s, Password=%s, Guardian_ID=%s 
+                    WHERE Student_ID=%s
+                """, (data['First_Name'], data['Last_Name'], data.get('Program'), data.get('Year_Level'), 
+                      data['Username'], generate_password_hash(data['Password']), g_id, student_id))
             else:
-                cursor.execute("UPDATE student SET First_Name=%s, Last_Name=%s, Username=%s, Guardian_ID=%s WHERE Student_ID=%s",
-                               (data['First_Name'], data['Last_Name'], data['Username'], g_id, student_id))
+                cursor.execute("""
+                    UPDATE student SET First_Name=%s, Last_Name=%s, Program=%s, Year_Level=%s, Username=%s, Guardian_ID=%s 
+                    WHERE Student_ID=%s
+                """, (data['First_Name'], data['Last_Name'], data.get('Program'), data.get('Year_Level'), 
+                      data['Username'], g_id, student_id))
             db.commit()
             return jsonify({"status": "success", "message": "Student updated!"}), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
     finally:
-        db.close()
+        if db:
+            db.close()
 
 # ==========================================
 # ADMIN CRUD: COURSES
 # ==========================================
 @app.route('/api/admin/courses', methods=['GET', 'POST'])
 def api_courses():
-    db = get_db_connection()
-    cursor = db.cursor(dictionary=True)
+    db = None
     try:
+        db = get_db_connection()
+        cursor = db.cursor(dictionary=True)
         if request.method == 'GET':
             cursor.execute("SELECT Course_Code, Course_Title FROM course ORDER BY Course_Code")
             return jsonify({"status": "success", "data": cursor.fetchall()}), 200
@@ -576,13 +627,15 @@ def api_courses():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
     finally:
-        db.close()
+        if db:
+            db.close()
 
 @app.route('/api/admin/courses/<string:course_code>', methods=['PUT', 'DELETE'])
 def api_modify_course(course_code):
-    db = get_db_connection()
-    cursor = db.cursor()
+    db = None
     try:
+        db = get_db_connection()
+        cursor = db.cursor()
         if request.method == 'DELETE':
             cursor.execute("DELETE FROM evaluation WHERE Session_ID IN (SELECT Session_ID FROM class_session WHERE Course_Code = %s)", (course_code,))
             cursor.execute("DELETE FROM class_session WHERE Course_Code = %s", (course_code,))
@@ -600,7 +653,8 @@ def api_modify_course(course_code):
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
     finally:
-        db.close()
+        if db:
+            db.close()
 
 # ==========================================
 # ADMIN CRUD: SCHEDULES

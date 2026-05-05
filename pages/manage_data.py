@@ -5,15 +5,43 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QTabWidget, QTableWidget, 
     QTableWidgetItem, QLabel, QPushButton, QHBoxLayout,
     QDialog, QFormLayout, QLineEdit, QDialogButtonBox, QMessageBox, QComboBox,
-    QHeaderView
+    QHeaderView, QTextEdit
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
-from PyQt6.QtGui import QPixmap
+from PyQt6.QtGui import QPixmap, QFont
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 from config import BASE_URL
+
+http_session = requests.Session()
+
+# ==========================================
+# 0. UTILITY DIALOGS
+# ==========================================
+class CommentViewerDialog(QDialog):
+    def __init__(self, parent=None, comment="", info=""):
+        super().__init__(parent)
+        self.setWindowTitle("Full Comment View")
+        self.resize(500, 400)
+        layout = QVBoxLayout(self)
+        
+        if info:
+            info_label = QLabel(info)
+            info_label.setStyleSheet("font-weight: bold; color: #1e293b;")
+            layout.addWidget(info_label)
+            
+        self.text_area = QTextEdit()
+        self.text_area.setPlainText(comment)
+        self.text_area.setReadOnly(True)
+        self.text_area.setFont(QFont("Segoe UI", 11))
+        self.text_area.setStyleSheet("background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 10px;")
+        layout.addWidget(self.text_area)
+        
+        btns = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok)
+        btns.accepted.connect(self.accept)
+        layout.addWidget(btns)
 
 # ==========================================
 # 1. API WORKER THREAD
@@ -29,7 +57,7 @@ class FetchDataWorker(QThread):
 
     def run(self):
         try:
-            response = requests.get(f"{BASE_URL}{self.endpoint}")
+            response = http_session.get(f"{BASE_URL}{self.endpoint}")
             response.raise_for_status()
             self.finished_success.emit(self.tab_index, response.json().get("data", []))
         except Exception as e:
@@ -98,6 +126,15 @@ class StudentDialog(QDialog):
         layout = QFormLayout(self)
         self.first_name = QLineEdit(data.get("First_Name", ""))
         self.last_name = QLineEdit(data.get("Last_Name", ""))
+        
+        self.program = QLineEdit(data.get("Program", ""))
+        self.year_level = QComboBox()
+        self.year_level.addItems(["1", "2", "3", "4", "5"])
+        y_level = data.get("Year_Level", "1")
+        if y_level:
+            idx = self.year_level.findText(str(y_level))
+            if idx >= 0: self.year_level.setCurrentIndex(idx)
+
         self.username = QLineEdit(data.get("Username", ""))
         self.password = QLineEdit()
         self.password.setEchoMode(QLineEdit.EchoMode.Password)
@@ -106,17 +143,24 @@ class StudentDialog(QDialog):
         self.guardian_combo = QComboBox()
         self.guardian_combo.addItem("None", None)
         try:
-            resp = requests.get(f"{BASE_URL}/api/admin/guardians").json().get("data", [])
-            for g in resp: self.guardian_combo.addItem(f"{g['First_Name']} {g['Last_Name']}", g['Guardian_ID'])
-        except: pass
+            response = http_session.get(f"{BASE_URL}/api/admin/guardians")
+            response.raise_for_status()
+            resp_data = response.json().get("data", [])
+            for g in resp_data: self.guardian_combo.addItem(f"{g['First_Name']} {g['Last_Name']}", g['Guardian_ID'])
+        except Exception as e: 
+            print(f"Error loading guardians for StudentDialog: {e}")
         
         g_id = str(data.get("Guardian_ID", ""))
         if g_id not in ["None", "-", ""]:
-            idx = self.guardian_combo.findData(int(g_id))
-            if idx >= 0: self.guardian_combo.setCurrentIndex(idx)
+            try:
+                idx = self.guardian_combo.findData(int(g_id))
+                if idx >= 0: self.guardian_combo.setCurrentIndex(idx)
+            except: pass
             
         layout.addRow("First Name:", self.first_name)
         layout.addRow("Last Name:", self.last_name)
+        layout.addRow("Program:", self.program)
+        layout.addRow("Year Level:", self.year_level)
         layout.addRow("Username:", self.username)
         layout.addRow("Password:", self.password)
         layout.addRow("Guardian:", self.guardian_combo)
@@ -126,8 +170,14 @@ class StudentDialog(QDialog):
         layout.addWidget(self.btns)
 
     def get_data(self):
-        payload = {"First_Name": self.first_name.text().strip(), "Last_Name": self.last_name.text().strip(), "Username"
-                   : self.username.text().strip(), "Guardian_ID": self.guardian_combo.currentData()}
+        payload = {
+            "First_Name": self.first_name.text().strip(), 
+            "Last_Name": self.last_name.text().strip(),
+            "Program": self.program.text().strip(),
+            "Year_Level": int(self.year_level.currentText()),
+            "Username": self.username.text().strip(), 
+            "Guardian_ID": self.guardian_combo.currentData()
+        }
         if self.password.text().strip(): payload["Password"] = self.password.text().strip()
         return payload
 
@@ -161,9 +211,12 @@ class ScheduleDialog(QDialog):
         self.start_time = QLineEdit(data.get("Start_Time", "09:00:00") if data else "09:00:00")
         self.end_time = QLineEdit(data.get("End_Time", "10:30:00") if data else "10:30:00")
         try:
-            courses = requests.get(f"{BASE_URL}/api/admin/courses").json().get("data", [])
+            response = http_session.get(f"{BASE_URL}/api/admin/courses")
+            response.raise_for_status()
+            courses = response.json().get("data", [])
             for c in courses: self.course_combo.addItem(c["Course_Code"], c["Course_Code"])
-        except: pass
+        except Exception as e:
+            print(f"Error loading courses for ScheduleDialog: {e}")
         if data:
             c_idx = self.course_combo.findData(data.get("Course_Code"))
             if c_idx >= 0: self.course_combo.setCurrentIndex(c_idx)
@@ -201,11 +254,17 @@ class EnrollmentDialog(QDialog):
             if idx >= 0: self.semester.setCurrentIndex(idx)
         self.grade = QLineEdit(data.get("Current_Grade", "1.00") if data.get("Current_Grade") else "")
         try:
-            students = requests.get(f"{BASE_URL}/api/admin/students").json().get("data", [])
+            s_resp = http_session.get(f"{BASE_URL}/api/admin/students")
+            s_resp.raise_for_status()
+            students = s_resp.json().get("data", [])
             for s in students: self.student_combo.addItem(f"{s['First_Name']} {s['Last_Name']}", s["Student_ID"])
-            courses = requests.get(f"{BASE_URL}/api/admin/courses").json().get("data", [])
+
+            c_resp = http_session.get(f"{BASE_URL}/api/admin/courses")
+            c_resp.raise_for_status()
+            courses = c_resp.json().get("data", [])
             for c in courses: self.course_combo.addItem(c["Course_Code"], c["Course_Code"])
-        except: pass
+        except Exception as e:
+            print(f"Error loading data for EnrollmentDialog: {e}")
         if data.get("Student_ID"):
             for i in range(self.student_combo.count()):
                 if str(self.student_combo.itemData(i)) == str(data.get("Student_ID")):
@@ -244,11 +303,17 @@ class SessionDialog(QDialog):
         self.date_input = QLineEdit(data.get("Session_Date", "2026-04-15") if data else "2026-04-15")
         self.topic_input = QLineEdit(data.get("Topic", "") if data else "")
         try:
-            courses = requests.get(f"{BASE_URL}/api/admin/courses").json().get("data", [])
+            c_resp = http_session.get(f"{BASE_URL}/api/admin/courses")
+            c_resp.raise_for_status()
+            courses = c_resp.json().get("data", [])
             for c in courses: self.course_combo.addItem(c["Course_Code"], c["Course_Code"])
-            profs = requests.get(f"{BASE_URL}/api/admin/professors").json().get("data", [])
+
+            p_resp = http_session.get(f"{BASE_URL}/api/admin/professors")
+            p_resp.raise_for_status()
+            profs = p_resp.json().get("data", [])
             for p in profs: self.prof_combo.addItem(f"{p['First_Name']} {p['Last_Name']}", p["Professor_ID"])
-        except: pass
+        except Exception as e:
+            print(f"Error loading data for SessionDialog: {e}")
         if data:
             c_idx = self.course_combo.findData(data.get("Course_Code"))
             if c_idx >= 0: self.course_combo.setCurrentIndex(c_idx)
@@ -314,13 +379,16 @@ class ManageDataWindow(QWidget):
 
         self.tabs.addTab(self.create_ui_tab("Professors", ["ID", "First Name", "Last Name", "Department"], self.handle_prof_crud), "Professors")
         self.tabs.addTab(self.create_ui_tab("Guardians", ["ID", "First Name", "Last Name", "Email", "Contact Number"], self.handle_guardian_crud), "Guardians")
-        self.tabs.addTab(self.create_ui_tab("Students", ["ID", "First Name", "Last Name", "Guardian ID"], self.handle_student_crud), "Students")
+        self.tabs.addTab(self.create_ui_tab("Students", ["ID", "First Name", "Last Name", "Program", "Year Level", "Username", "Guardian ID"], self.handle_student_crud), "Students")
         self.tabs.addTab(self.create_ui_tab("Courses", ["Code", "Title"], self.handle_course_crud), "Courses")
         self.tabs.addTab(self.create_ui_tab("Schedules", ["ID", "Course", "Room Name", "Schedule Day", "Start", "End"], self.handle_schedule_crud), "Schedules")
         self.tabs.addTab(self.create_ui_tab("Enrollments", ["ID", "Student ID", "Course", "Acad. Year", "Semester", "Grade"], self.handle_enrollment_crud), "Enrollments")
         self.tabs.addTab(self.create_ui_tab("Class Sessions", ["ID", "Course", "Topic", "Date", "Prof ID"], self.handle_session_crud), "Sessions")
         self.tabs.addTab(self.create_ui_tab("Evaluations", ["ID", "Course", "Clarity", "Pacing", "Comp.", "Engage.", "Date", "Study Hrs", "Comments"], self.handle_eval_crud, hide_add_edit=True), "Evaluations")
         
+        # Connect double-click for Evaluations table
+        self.evaluations_table.itemDoubleClicked.connect(self.show_comment_popup_item)
+
         main_layout.addWidget(self.tabs)
         self.setLayout(main_layout)
 
@@ -328,6 +396,23 @@ class ManageDataWindow(QWidget):
         self.loaded_tabs = {i: False for i in range(8)}
         self.worker = None 
         self.on_tab_changed(0) 
+
+    def show_comment_popup_item(self, item):
+        self.show_comment_popup(item.row(), item.column())
+
+    def show_comment_popup(self, row, column):
+        # Comments are in column 8
+        if column == 8:
+            item = self.evaluations_table.item(row, column)
+            if not item: return
+            comment = item.text()
+            course_item = self.evaluations_table.item(row, 1)
+            course = course_item.text() if course_item else "N/A"
+            
+            if not comment.strip() or comment == "-": return
+            
+            dlg = CommentViewerDialog(self, comment, f"Course: {course}")
+            dlg.exec()
 
     def create_ui_tab(self, name, headers, crud_router, hide_add_edit=False):
         tab = QWidget()
@@ -377,6 +462,13 @@ class ManageDataWindow(QWidget):
 
     def on_tab_changed(self, index):
         if self.loaded_tabs[index]: return 
+        
+        # Cleanup existing worker to prevent race conditions
+        if hasattr(self, 'worker') and self.worker and self.worker.isRunning():
+            self.worker.terminate()
+            self.worker.wait()
+            self.worker = None
+
         endpoints = {0: "/api/admin/professors", 1: "/api/admin/guardians", 2: "/api/admin/students", 3: "/api/admin/courses", 4: "/api/admin/schedules", 5: "/api/admin/enrollments", 6: "/api/admin/sessions", 7: "/api/admin/evaluations"}
         if index in endpoints:
             self.worker = FetchDataWorker(index, endpoints[index])
@@ -391,7 +483,7 @@ class ManageDataWindow(QWidget):
         self.loaded_tabs[idx] = True
         if idx == 0: self.populate_exact(self.professors_table, data, ["Professor_ID", "First_Name", "Last_Name", "Department"])
         elif idx == 1: self.populate_exact(self.guardians_table, data, ["Guardian_ID", "First_Name", "Last_Name", "Email", "Contact_Number"])
-        elif idx == 2: self.populate_exact(self.students_table, data, ["Student_ID", "First_Name", "Last_Name", "Guardian_ID"])
+        elif idx == 2: self.populate_exact(self.students_table, data, ["Student_ID", "First_Name", "Last_Name", "Program", "Year_Level", "Username", "Guardian_ID"])
         elif idx == 3: self.populate_exact(self.courses_table, data, ["Course_Code", "Course_Title"])
         elif idx == 4: self.populate_exact(self.schedules_table, data, ["Schedule_ID", "Course_Code", "Room_Name", "Schedule_Day", "Start_Time", 
                                                                         "End_Time"])
@@ -408,7 +500,9 @@ class ManageDataWindow(QWidget):
                 if key == "Submission_Date" and "Formatted_Date" in row_data: val = row_data.get("Formatted_Date")
                 else: val = row_data.get(key)
                 if val is None or val == "": val = "-"
-                table.setItem(r, c, QTableWidgetItem(str(val)))
+                item = QTableWidgetItem(str(val))
+                item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                table.setItem(r, c, item)
 
     def get_selected(self, table):
         rows = table.selectionModel().selectedRows()
@@ -418,9 +512,9 @@ class ManageDataWindow(QWidget):
         try:
             url = f"{BASE_URL}{endpoint}"
             resp = None
-            if method == "POST": resp = requests.post(url, json=payload)
-            elif method == "PUT": resp = requests.put(url, json=payload)
-            elif method == "DELETE": resp = requests.delete(url)
+            if method == "POST": resp = http_session.post(url, json=payload)
+            elif method == "PUT": resp = http_session.put(url, json=payload)
+            elif method == "DELETE": resp = http_session.delete(url)
             if resp is not None:
                 resp.raise_for_status()
                 
@@ -479,7 +573,14 @@ class ManageDataWindow(QWidget):
         elif action == "EDIT":
             r = self.get_selected(t)
             if r is None: return QMessageBox.warning(self, "Error", "Select a row!")
-            data = {"First_Name": t.item(r,1).text(), "Last_Name": t.item(r,2).text(), "Guardian_ID": t.item(r,3).text()}
+            data = {
+                "First_Name": t.item(r,1).text(), 
+                "Last_Name": t.item(r,2).text(),
+                "Program": t.item(r,3).text(),
+                "Year_Level": t.item(r,4).text(),
+                "Username": t.item(r,5).text(),
+                "Guardian_ID": t.item(r,6).text()
+            }
             dlg = StudentDialog(self, data)
             if dlg.exec() == QDialog.DialogCode.Accepted: self.api_call("PUT", f"/api/admin/students/{t.item(r,0).text()}", dlg.get_data(), 2)
         elif action == "DELETE":

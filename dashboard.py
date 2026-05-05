@@ -13,13 +13,45 @@ from PyQt6.QtWidgets import (
     QHeaderView,
     QMessageBox,
     QMenu,
+    QDialog,
+    QTextEdit,
+    QDialogButtonBox
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QFont, QCursor, QPixmap
 from config import BASE_URL
 
+http_session = requests.Session()
 
-class DashboardWorker(QThread):
+# ==========================================
+# 0. UTILITY DIALOGS
+# ==========================================
+class CommentViewerDialog(QDialog):
+    def __init__(self, parent=None, comment="", info=""):
+        super().__init__(parent)
+        self.setWindowTitle("Full Comment View")
+        self.resize(500, 400)
+        layout = QVBoxLayout(self)
+        
+        if info:
+            info_label = QLabel(info)
+            info_label.setStyleSheet("font-weight: bold; color: #1e293b;")
+            layout.addWidget(info_label)
+            
+        self.text_area = QTextEdit()
+        self.text_area.setPlainText(comment)
+        self.text_area.setReadOnly(True)
+        self.text_area.setFont(QFont("Segoe UI", 11))
+        self.text_area.setStyleSheet("background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 10px;")
+        layout.addWidget(self.text_area)
+        
+        btns = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok)
+        btns.accepted.connect(self.accept)
+        layout.addWidget(btns)
+
+# ==========================================
+# 1. API WORKER THREAD
+# ==========================================
     finished_success = pyqtSignal(dict)
     finished_error = pyqtSignal(str)
 
@@ -209,8 +241,8 @@ class DashboardPage(QWidget):
         header = self.table.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
 
-        # ADDED: Connect double-click to popup feature
-        self.table.cellDoubleClicked.connect(self.show_comment_popup)
+        # UPDATED: Connect double-click using item signal for better reliability
+        self.table.itemDoubleClicked.connect(self.show_comment_popup_item)
 
         table_layout.addWidget(
             QLabel("<b>Evaluation Data</b> (Double-click comment to view full text)")
@@ -226,7 +258,10 @@ class DashboardPage(QWidget):
 
         self.fetch_current_week()
 
-    # ADDED: New method for Comment Pop-up
+    def show_comment_popup_item(self, item):
+        self.show_comment_popup(item.row(), item.column())
+
+    # UPDATED: New method for Comment Pop-up using dedicated dialog
     def show_comment_popup(self, row, column):
         # We only want to pop up if they click the "Comments" column (index 8)
         if column == 8:
@@ -234,21 +269,11 @@ class DashboardPage(QWidget):
             topic = self.table.item(row, 2).text()
             comment = self.table.item(row, 8).text()
 
-            if not comment.strip():
+            if not comment.strip() or comment == "-":
                 return
 
-            msg = QMessageBox(self)
-            msg.setWindowTitle("📣 Student Comment")
-            # Show Course and Topic at the top as requested
-            msg.setText(f"<b>Course:</b> {course}<br><b>Topic:</b> {topic}")
-            msg.setInformativeText(comment)
-            msg.setStandardButtons(QMessageBox.StandardButton.Ok)
-            msg.setStyleSheet("""
-                QLabel { min-width: 400px; font-size: 13px; }
-                QMessageBox { background-color: #f8fafc; }
-                QPushButton { background-color: #6d28d9; color: white; padding: 5px 15px; border-radius: 4px; font-weight: bold; }
-            """)
-            msg.exec()
+            dlg = CommentViewerDialog(self, comment, f"Course: {course} | Topic: {topic}")
+            dlg.exec()
 
     def create_kpi(self, title, default_value, color):
         box = QFrame()
@@ -404,23 +429,21 @@ class DashboardPage(QWidget):
             week_display = (
                 f"Week {ev.get('Week_Number')}" if ev.get("Week_Number") > 0 else "N/A"
             )
-            self.table.setItem(row, 0, QTableWidgetItem(week_display))
-            self.table.setItem(row, 1, QTableWidgetItem(str(ev.get("Course_Code", ""))))
-            self.table.setItem(row, 2, QTableWidgetItem(str(ev.get("Topic", ""))))
-            self.table.setItem(
-                row, 3, QTableWidgetItem(str(ev.get("Clarity_Score", "")))
-            )
-            self.table.setItem(
-                row, 4, QTableWidgetItem(str(ev.get("Pacing_Score", "")))
-            )
-            self.table.setItem(
-                row, 5, QTableWidgetItem(str(ev.get("Comprehension_Score", "")))
-            )
-            self.table.setItem(
-                row, 6, QTableWidgetItem(str(ev.get("Engagement_Score", "")))
-            )
-            self.table.setItem(row, 7, QTableWidgetItem(str(ev.get("Study_Hours", 0))))
-            self.table.setItem(row, 8, QTableWidgetItem(str(ev.get("Comments", ""))))
+            cols = [
+                week_display,
+                str(ev.get("Course_Code", "")),
+                str(ev.get("Topic", "")),
+                str(ev.get("Clarity_Score", "")),
+                str(ev.get("Pacing_Score", "")),
+                str(ev.get("Comprehension_Score", "")),
+                str(ev.get("Engagement_Score", "")),
+                str(ev.get("Study_Hours", 0)),
+                str(ev.get("Comments", ""))
+            ]
+            for col, text in enumerate(cols):
+                item = QTableWidgetItem(text)
+                item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                self.table.setItem(row, col, item)
 
     def open_analytics(self):
         try:
